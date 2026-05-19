@@ -128,7 +128,8 @@ public class JdbcReservationRepository implements ReservationRepository {
     ) {
         List<Object> params = new ArrayList<>();
 
-        StringBuilder sql = new StringBuilder("""
+        StringBuilder sql = new StringBuilder(
+        """
         select
             r.id              as reservation_id,
             r.name            as reservation_name,
@@ -144,7 +145,8 @@ public class JdbcReservationRepository implements ReservationRepository {
         inner join reservation_time t on r.time_id  = t.id
         inner join theme            h on r.theme_id = h.id
         where 1=1
-        """);
+        """
+        );
 
         if (name != null) {
             sql.append(" and r.name = ?");
