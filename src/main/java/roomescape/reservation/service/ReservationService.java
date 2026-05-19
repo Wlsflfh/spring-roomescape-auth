@@ -7,6 +7,8 @@ import roomescape.exception.DuplicateResourceException;
 import roomescape.exception.ForbiddenException;
 import roomescape.exception.ResourceNotFoundException;
 import roomescape.member.domain.Member;
+import roomescape.member.service.MemberService;
+import roomescape.reservation.controller.dto.AdminReservationRequest;
 import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
@@ -27,15 +29,30 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final ReservationTimeService reservationTimeService;
     private final ThemeService themeService;
+    private final MemberService memberService;
 
     public ReservationService(
             ReservationRepository reservationRepository,
             ReservationTimeService reservationTimeService,
-            ThemeService themeService
+            ThemeService themeService,
+            MemberService memberService
     ) {
         this.reservationRepository = reservationRepository;
         this.reservationTimeService = reservationTimeService;
         this.themeService = themeService;
+        this.memberService = memberService;
+    }
+
+    @Transactional
+    public Reservation saveByAdmin(AdminReservationRequest request) {
+        Member member = memberService.getById(request.memberId());
+        validateDuplicateReservation(request.date(), request.timeId(), request.themeId());
+
+        ReservationTime time = reservationTimeService.getById(request.timeId());
+        Theme theme = themeService.getById(request.themeId());
+
+        Reservation reservation = Reservation.create(member, request.date(), time, theme, LocalDateTime.now());
+        return reservationRepository.save(reservation);
     }
 
     @Transactional

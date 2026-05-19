@@ -5,8 +5,7 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import roomescape.auth.annotation.LoginMember;
-import roomescape.member.domain.Member;
+import roomescape.reservation.controller.dto.AdminReservationRequest;
 import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.controller.dto.ReservationResponse;
 import roomescape.reservation.domain.Reservation;
@@ -43,10 +42,9 @@ public class AdminReservationController {
 
     @PostMapping
     public ResponseEntity<ReservationResponse> create(
-            @Valid @RequestBody ReservationRequest request,
-            @LoginMember Member member
+            @Valid @RequestBody AdminReservationRequest request
     ) {
-        Reservation reservation = reservationService.save(request, member);
+        Reservation reservation = reservationService.saveByAdmin(request);
         ReservationResponse response = ReservationResponse.from(reservation);
         return ResponseEntity
                 .created(URI.create("/reservations/" + response.id()))
