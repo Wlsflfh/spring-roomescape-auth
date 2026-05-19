@@ -36,7 +36,7 @@ public class AdminAuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> adminLogout(HttpSession session) {
-        session.removeAttribute(ADMIN_SESSION_KEY);
+        session.invalidate();
         return ResponseEntity.noContent().build();
     }
 }
