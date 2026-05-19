@@ -79,6 +79,7 @@ function renderPopular(themes) {
 
 /* ── Init ── */
 (async function init() {
+  Auth.initNav();
   try {
     const [themes, popular] = await Promise.all([
       api("/themes"),

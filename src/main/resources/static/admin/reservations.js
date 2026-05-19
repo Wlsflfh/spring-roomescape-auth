@@ -1,13 +1,13 @@
 /**
- * 관리자 예약 관리 (templates/admin/reservations.html)
+ * 관리자 예약 관리 (static/admin/reservation.html)
  *
  * API
- *  GET   /admin/reservations?name=&from=&to=&themeId=  : 필터 조회 (name 없으면 전체)
- *  POST  /admin/reservations                           : 예약 추가
- *  PUT   /admin/reservations/{id}                      : 예약 수정 (RESERVED만)
- *  PATCH /admin/reservations/{id}                      : 예약 취소 (RESERVED만)
- *  GET   /admin/times                                  : 시간 슬롯 목록
- *  GET   /themes                                       : 테마 목록
+ *  GET   /admin/reservations?memberId=&from=&to=&themeId= : 필터 조회
+ *  POST  /admin/reservations                              : 예약 추가 (관리자 본인 계정으로 생성)
+ *  PUT   /admin/reservations/{id}                         : 예약 수정 (RESERVED만)
+ *  PATCH /admin/reservations/{id}                         : 예약 취소 (RESERVED만)
+ *  GET   /admin/times                                     : 시간 슬롯 목록
+ *  GET   /themes                                          : 테마 목록
  */
 const $ = (sel) => document.querySelector(sel);
 
@@ -69,18 +69,12 @@ async function loadSelectors() {
   fillSelect(document.querySelector('#createForm select[name="themeId"]'), themes, "테마 선택", themeLabel);
   fillSelect(document.querySelector('#createForm select[name="timeId"]'), times, "시간 선택", timeLabel);
   fillSelect($("#editTheme"), themes, "테마 선택", themeLabel);
-  // #editTime 은 모달 열릴 때 available-times API 로 동적으로 채움
 }
 
 /* ── 수정 모달 — 예약 가능 시간 동적 조회 ── */
 let _adminPinTimeId    = "";
 let _adminPinTimeLabel = "";
 
-/**
- * themeId + date 조합의 예약 가능 시간을 조회해 #editTime 을 채운다.
- * pinTimeId / pinTimeLabel: 모달을 처음 열 때 현재 예약 시간을 유지하기 위해 전달.
- *                           날짜·테마를 바꾼 경우엔 null 전달 → 핀 없이 가능 시간만 표시.
- */
 async function loadAdminEditTimes(themeId, date, pinTimeId = null, pinTimeLabel = null) {
   const sel = $("#editTime");
   if (!themeId || !date) {
@@ -93,7 +87,6 @@ async function loadAdminEditTimes(themeId, date, pinTimeId = null, pinTimeLabel 
     const times = await api(`/themes/${themeId}/available-times?date=${date}`);
     sel.innerHTML = "";
 
-    // 현재 예약 시간은 이미 자신이 선점한 슬롯이라 available 목록에서 빠짐 → 수동 포함
     if (pinTimeId && !times.some((t) => String(t.id) === String(pinTimeId))) {
       const opt = document.createElement("option");
       opt.value = pinTimeId;
@@ -137,7 +130,7 @@ function renderReservations(list) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="num">${r.id}</td>
-      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.memberName ?? "")}</td>
       <td>${escapeHtml(r.date)}</td>
       <td>${escapeHtml(r.time?.startAt ?? "")}</td>
       <td>${escapeHtml(r.theme?.name ?? "")}</td>
@@ -154,15 +147,15 @@ function renderReservations(list) {
 }
 
 function buildQuery() {
-  const name    = $("#filterName").value.trim();
-  const from    = $("#filterFrom").value;
-  const to      = $("#filterTo").value;
-  const themeId = $("#filterTheme").value;
-  const params  = new URLSearchParams();
-  if (name)    params.append("name", name);
-  if (from)    params.append("from", from);
-  if (to)      params.append("to", to);
-  if (themeId) params.append("themeId", themeId);
+  const memberId = $("#filterMemberId").value.trim();
+  const from     = $("#filterFrom").value;
+  const to       = $("#filterTo").value;
+  const themeId  = $("#filterTheme").value;
+  const params   = new URLSearchParams();
+  if (memberId) params.append("memberId", memberId);
+  if (from)     params.append("from", from);
+  if (to)       params.append("to", to);
+  if (themeId)  params.append("themeId", themeId);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
@@ -176,12 +169,11 @@ async function refreshList() {
 $("#createBtn").addEventListener("click", async () => {
   const form = new FormData($("#createForm"));
   const payload = {
-    name:    (form.get("name") || "").trim(),
     date:    form.get("date"),
     timeId:  form.get("timeId")  ? Number(form.get("timeId"))  : null,
     themeId: form.get("themeId") ? Number(form.get("themeId")) : null,
   };
-  if (!payload.name || !payload.date || !payload.timeId || !payload.themeId) {
+  if (!payload.date || !payload.timeId || !payload.themeId) {
     setMessage("모든 필드를 입력해 주세요.", true);
     return;
   }
@@ -189,7 +181,7 @@ $("#createBtn").addEventListener("click", async () => {
     const created = await api("/admin/reservations", { method: "POST", body: JSON.stringify(payload) });
     $("#createForm").reset();
     await refreshList();
-    setMessage(`추가 완료 · #${created.id} ${created.name} / ${created.date} ${created.time?.startAt ?? ""}`);
+    setMessage(`추가 완료 · #${created.id} ${created.memberName ?? ""} / ${created.date} ${created.time?.startAt ?? ""}`);
   } catch (e) {
     setMessage(e.message, true);
   }
@@ -225,13 +217,11 @@ function openEditModal(id) {
   _adminPinTimeId    = String(r.time?.id    ?? "");
   _adminPinTimeLabel = r.time?.startAt ?? "";
 
-  $("#editId").value   = r.id;
-  $("#editName").value = r.name;
-  $("#editDate").value = r.date;
+  $("#editId").value    = r.id;
+  $("#editDate").value  = r.date;
   $("#editTheme").value = r.theme?.id ?? "";
-  $("#editModalTitle").textContent = `예약 #${r.id} 수정`;
+  $("#editModalTitle").textContent = `예약 #${r.id} 수정 (예약자: ${r.memberName ?? ""})`;
 
-  // 모달 열릴 때 즉시 예약 가능 시간 조회 (현재 시간 핀 포함)
   loadAdminEditTimes(r.theme?.id, r.date, _adminPinTimeId, _adminPinTimeLabel);
   $("#editModal").classList.remove("hidden");
 }
@@ -240,12 +230,10 @@ function closeEditModal() {
   $("#editModal").classList.add("hidden");
 }
 
-// 날짜 변경 → 핀 없이 새 가능 시간 조회
 $("#editDate").addEventListener("change", () => {
   loadAdminEditTimes($("#editTheme").value, $("#editDate").value);
 });
 
-// 테마 변경 → 핀 없이 새 가능 시간 조회
 $("#editTheme").addEventListener("change", () => {
   loadAdminEditTimes($("#editTheme").value, $("#editDate").value);
 });
@@ -258,12 +246,11 @@ $("#editModal").addEventListener("click", (e) => {
 $("#editSaveBtn").addEventListener("click", async () => {
   const id = Number($("#editId").value);
   const payload = {
-    name:    $("#editName").value.trim(),
     date:    $("#editDate").value,
     timeId:  Number($("#editTime").value)  || null,
     themeId: Number($("#editTheme").value) || null,
   };
-  if (!payload.name || !payload.date || !payload.timeId || !payload.themeId) {
+  if (!payload.date || !payload.timeId || !payload.themeId) {
     setMessage("모든 필드를 입력해 주세요.", true);
     return;
   }
@@ -284,10 +271,10 @@ $("#applyFilter").addEventListener("click", async () => {
 });
 
 $("#resetFilter").addEventListener("click", async () => {
-  $("#filterName").value  = "";
-  $("#filterFrom").value  = "";
-  $("#filterTo").value    = "";
-  $("#filterTheme").value = "";
+  $("#filterMemberId").value = "";
+  $("#filterFrom").value     = "";
+  $("#filterTo").value       = "";
+  $("#filterTheme").value    = "";
   try { await refreshList(); setMessage("필터를 초기화했습니다."); }
   catch (e) { setMessage(e.message, true); }
 });

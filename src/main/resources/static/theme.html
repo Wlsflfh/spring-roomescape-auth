@@ -13,10 +13,7 @@
 
 <nav class="navbar">
   <a class="nav-logo" href="/">// ROOMESCAPE</a>
-  <div class="nav-actions">
-    <a class="nav-btn" href="/my-reservations.html">🔍 예약 조회</a>
-    <a class="nav-btn primary-btn" href="/admin/index.html">⌘ 관리자</a>
-  </div>
+  <div class="nav-actions" id="navActions"></div>
 </nav>
 
 <!-- themeId 는 JS 에서 URLSearchParams 로 읽음 (?id=숫자) -->
@@ -30,14 +27,7 @@
 
   <section class="panel">
     <h2>예약하기</h2>
-    <p class="panel-sub">날짜를 선택하면 예약 가능한 시간이 표시된다. 이름 입력 후 시간을 클릭하면 바로 예약된다.</p>
-
-    <div class="booking-name-bar">
-      <div class="field">
-        <label>예약자 이름</label>
-        <input id="bookingName" maxlength="10" placeholder="홍길동 (최대 10자)" type="text" />
-      </div>
-    </div>
+    <p class="panel-sub">날짜를 선택하면 예약 가능한 시간이 표시된다. 시간을 클릭하면 바로 예약된다.</p>
 
     <div class="booking-grid">
 
@@ -69,6 +59,7 @@
 
 </main>
 
+<script src="/auth.js"></script>
 <script src="/theme.js"></script>
 </body>
 </html>

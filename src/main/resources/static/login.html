@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>로그인 · Roomescape</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="/styles.css" rel="stylesheet" />
+  <style>
+    .auth-wrap {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .auth-card {
+      flex: 1;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+    }
+    .auth-card h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+    }
+    .auth-card .sub {
+      color: var(--text-2);
+      font-size: 13px;
+      margin: 0 0 20px;
+    }
+    .auth-card .field { margin-bottom: 14px; }
+    .auth-card .field label { font-size: 13px; color: var(--text-2); display: block; margin-bottom: 4px; }
+    .auth-card .field input { width: 100%; box-sizing: border-box; }
+    .auth-card .primary { width: 100%; margin-top: 4px; }
+    .auth-msg { margin: 10px 0 0; font-size: 13px; min-height: 18px; }
+    .auth-msg.error { color: var(--danger); }
+    .auth-msg.ok    { color: var(--success, #22c55e); }
+    @media (max-width: 600px) {
+      .auth-wrap { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="nav-logo" href="/">// ROOMESCAPE</a>
+  <div class="nav-actions">
+    <a class="nav-btn" href="/">← 홈</a>
+  </div>
+</nav>
+
+<main class="page" style="padding-top:0;">
+  <header class="hero">
+    <p class="eyebrow">// Roomescape · 계정</p>
+    <h1>로그인 / 회원가입</h1>
+    <p>예약을 하려면 먼저 로그인해 주세요.</p>
+  </header>
+
+  <div class="auth-wrap">
+
+    <!-- 로그인 -->
+    <div class="auth-card">
+      <h2>로그인</h2>
+      <p class="sub">이미 계정이 있다면 여기서 로그인하세요.</p>
+      <div class="field">
+        <label>아이디</label>
+        <input id="loginId" placeholder="아이디" type="text" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="loginPw" placeholder="비밀번호" type="password" autocomplete="current-password" />
+      </div>
+      <button class="primary" id="loginBtn" type="button">로그인</button>
+      <p class="auth-msg" id="loginMsg"></p>
+    </div>
+
+    <!-- 회원가입 -->
+    <div class="auth-card">
+      <h2>회원가입</h2>
+      <p class="sub">처음 방문이라면 계정을 만들어 주세요.</p>
+      <div class="field">
+        <label>아이디</label>
+        <input id="signupId" placeholder="영문/숫자, 4~20자" type="text" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>닉네임</label>
+        <input id="signupName" placeholder="홍길동 (최대 10자)" type="text" />
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="signupPw" placeholder="8자 이상" type="password" autocomplete="new-password" />
+      </div>
+      <button class="primary" id="signupBtn" type="button">회원가입</button>
+      <p class="auth-msg" id="signupMsg"></p>
+    </div>
+
+  </div>
+</main>
+
+<script src="/auth.js"></script>
+<script>
+  // 이미 로그인된 경우 홈으로 이동
+  if (Auth.isLoggedIn()) location.href = '/';
+
+  const $ = (sel) => document.querySelector(sel);
+
+  async function post(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `오류 (HTTP ${res.status})`);
+    return data;
+  }
+
+  /* 로그인 */
+  async function doLogin() {
+    const msgEl = $('#loginMsg');
+    msgEl.className = 'auth-msg';
+    msgEl.textContent = '';
+    const loginId = $('#loginId').value.trim();
+    const password = $('#loginPw').value;
+    if (!loginId || !password) { msgEl.className = 'auth-msg error'; msgEl.textContent = '아이디와 비밀번호를 입력해 주세요.'; return; }
+    try {
+      const member = await post('/login', { loginId, password });
+      Auth.setMember(member);
+      const next = new URLSearchParams(location.search).get('next') || '/';
+      location.href = next;
+    } catch (e) {
+      msgEl.className = 'auth-msg error';
+      msgEl.textContent = e.message;
+    }
+  }
+
+  /* 회원가입 */
+  async function doSignup() {
+    const msgEl = $('#signupMsg');
+    msgEl.className = 'auth-msg';
+    msgEl.textContent = '';
+    const loginId = $('#signupId').value.trim();
+    const name    = $('#signupName').value.trim();
+    const password = $('#signupPw').value;
+    if (!loginId || !name || !password) { msgEl.className = 'auth-msg error'; msgEl.textContent = '모든 항목을 입력해 주세요.'; return; }
+    try {
+      await post('/members', { loginId, name, password });
+      msgEl.className = 'auth-msg ok';
+      msgEl.textContent = '회원가입 완료! 로그인해 주세요.';
+      $('#loginId').value = loginId;
+      $('#loginPw').focus();
+    } catch (e) {
+      msgEl.className = 'auth-msg error';
+      msgEl.textContent = e.message;
+    }
+  }
+
+  $('#loginBtn').addEventListener('click', doLogin);
+  $('#signupBtn').addEventListener('click', doSignup);
+
+  $('#loginPw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  $('#signupPw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSignup(); });
+</script>
+</body>
+</html>

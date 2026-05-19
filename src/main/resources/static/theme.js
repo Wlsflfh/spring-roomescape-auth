@@ -159,10 +159,11 @@ $("#availableTimes").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-time-id]");
   if (!btn) return;
 
-  const name = $("#bookingName").value.trim();
-  if (!name) {
-    setMessage("예약자 이름을 입력해 주세요.", true);
-    $("#bookingName").focus();
+  // 로그인 체크: 비로그인 시 로그인 페이지로
+  if (!Auth.isLoggedIn()) {
+    if (confirm("예약하려면 로그인이 필요합니다. 로그인 페이지로 이동할까요?")) {
+      location.href = `/login.html?next=${encodeURIComponent(location.href)}`;
+    }
     return;
   }
 
@@ -173,11 +174,11 @@ $("#availableTimes").addEventListener("click", async (e) => {
   try {
     const created = await api("/reservations", {
       method: "POST",
-      body: JSON.stringify({ name, date, timeId, themeId }),
+      body: JSON.stringify({ date, timeId, themeId }),
     });
 
     const box = $("#successBox");
-    box.textContent = `✓ 예약 완료 · #${created.id} / ${created.date} ${created.time?.startAt ?? ""} / ${created.name}`;
+    box.textContent = `✓ 예약 완료 · #${created.id} / ${created.date} ${created.time?.startAt ?? ""} / ${created.memberName ?? ""}`;
     box.classList.add("visible");
     setMessage("");
 
@@ -208,6 +209,7 @@ $("#calGrid").addEventListener("click", (e) => {
 
 /* ── Init ── */
 (async function init() {
+  Auth.initNav({ extraLeft: '<a class="nav-btn" href="/">← 홈</a>' });
   renderCalendar();
   try {
     await loadTheme();

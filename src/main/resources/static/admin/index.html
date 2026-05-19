@@ -14,7 +14,7 @@
 <nav class="navbar">
   <a class="nav-logo" href="/">// ROOMESCAPE</a>
   <div class="nav-actions">
-    <a class="nav-btn" href="/">← 홈으로</a>
+    <button class="nav-btn" id="adminLogoutBtn" type="button">관리자 로그아웃</button>
   </div>
 </nav>
 
@@ -47,5 +47,26 @@
     </div>
   </section>
 </main>
+
+<script src="/auth.js"></script>
+<script>
+  // 관리자 세션 검증: /admin/reservations 에 HEAD 요청 → 403이면 미인증
+  (async function checkAdminAuth() {
+    try {
+      const res = await fetch('/admin/reservations', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (res.status === 403 || res.status === 401) {
+        alert('관리자 인증이 필요합니다. 홈에서 관리자 버튼을 눌러 비밀번호를 입력해 주세요.');
+        location.href = '/';
+      }
+    } catch (_) {
+      // 네트워크 오류는 무시 (서버 기동 중일 수 있음)
+    }
+  })();
+
+  document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
+    try { await fetch('/admin/logout', { method: 'POST' }); } catch (_) {}
+    location.href = '/';
+  });
+</script>
 </body>
 </html>
