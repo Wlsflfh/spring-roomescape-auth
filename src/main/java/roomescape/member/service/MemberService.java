@@ -7,6 +7,8 @@ import roomescape.member.controller.dto.MemberRequest;
 import roomescape.member.domain.Member;
 import roomescape.member.repository.MemberRepository;
 
+import java.util.List;
+
 @Service
 @Transactional(readOnly = true)
 public class MemberService {
@@ -31,5 +33,9 @@ public class MemberService {
     public Member getByLoginId(String loginId) {
         return memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new ResourceNotFoundException("해당 로그인 ID의 회원이 존재하지 않습니다."));
+    }
+
+    public List<Member> searchByName(String name) {
+        return memberRepository.findAllByName(name);
     }
 }

@@ -64,4 +64,10 @@ public class JdbcMemberRepository implements MemberRepository {
         List<Member> results = jdbcTemplate.query(sql, memberMapper, loginId);
         return results.stream().findFirst();
     }
+
+    @Override
+    public List<Member> findAllByName(String name) {
+        String sql = "select id, login_id, name, password from member where name like ?";
+        return jdbcTemplate.query(sql, memberMapper, "%" + name + "%");
+    }
 }

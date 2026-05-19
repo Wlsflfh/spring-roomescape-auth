@@ -147,12 +147,10 @@ function renderReservations(list) {
 }
 
 function buildQuery() {
-  const memberId = $("#filterMemberId").value.trim();
-  const from     = $("#filterFrom").value;
-  const to       = $("#filterTo").value;
-  const themeId  = $("#filterTheme").value;
-  const params   = new URLSearchParams();
-  if (memberId) params.append("memberId", memberId);
+  const from    = $("#filterFrom").value;
+  const to      = $("#filterTo").value;
+  const themeId = $("#filterTheme").value;
+  const params  = new URLSearchParams();
   if (from)     params.append("from", from);
   if (to)       params.append("to", to);
   if (themeId)  params.append("themeId", themeId);
@@ -162,17 +160,77 @@ function buildQuery() {
 
 async function refreshList() {
   cachedList = await api(`/admin/reservations${buildQuery()}`);
-  renderReservations(cachedList);
+  applyNameFilter();
 }
+
+function applyNameFilter() {
+  const keyword = ($("#filterMemberName").value ?? "").trim().toLowerCase();
+  const filtered = keyword
+    ? cachedList.filter((r) => (r.memberName ?? "").toLowerCase().includes(keyword))
+    : cachedList;
+  renderReservations(filtered);
+}
+
+/* ── Member search (create form) ── */
+function renderMemberSearchResult(members) {
+  const box = $("#memberSearchResult");
+  if (!members.length) {
+    box.style.display = "block";
+    box.innerHTML = `<div style="padding:10px 14px; font-size:13px; color:var(--muted);">검색 결과가 없습니다.</div>`;
+    return;
+  }
+  box.style.display = "block";
+  box.innerHTML = members.map((m) => `
+    <div data-member-id="${m.id}" data-member-name="${escapeHtml(m.name)}"
+         style="padding:10px 14px; cursor:pointer; font-size:14px; border-bottom:1px solid var(--border);"
+         onmouseover="this.style.background='var(--surface-hover)'"
+         onmouseout="this.style.background=''">
+      ${escapeHtml(m.name)} <span style="color:var(--muted); font-size:12px;">(${escapeHtml(m.loginId)})</span>
+    </div>
+  `).join("");
+}
+
+function selectMember(id, name) {
+  $("#selectedMemberId").value = id;
+  $("#selectedMemberLabel").textContent = `선택된 회원: ${name}`;
+  $("#memberSearchResult").style.display = "none";
+  $("#memberSearchInput").value = name;
+}
+
+$("#memberSearchBtn").addEventListener("click", async () => {
+  const name = $("#memberSearchInput").value.trim();
+  if (!name) { setMessage("검색할 이름을 입력해 주세요.", true); return; }
+  try {
+    const members = await api(`/admin/members?name=${encodeURIComponent(name)}`);
+    renderMemberSearchResult(members);
+  } catch (e) {
+    setMessage(e.message, true);
+  }
+});
+
+$("#memberSearchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("#memberSearchBtn").click(); }
+});
+
+$("#memberSearchResult").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-member-id]");
+  if (row) selectMember(row.dataset.memberId, row.dataset.memberName);
+});
 
 /* ── Create ── */
 $("#createBtn").addEventListener("click", async () => {
-  const form = new FormData($("#createForm"));
+  const form     = new FormData($("#createForm"));
+  const memberId = $("#selectedMemberId").value;
   const payload = {
-    date:    form.get("date"),
-    timeId:  form.get("timeId")  ? Number(form.get("timeId"))  : null,
-    themeId: form.get("themeId") ? Number(form.get("themeId")) : null,
+    date:     form.get("date"),
+    timeId:   form.get("timeId")  ? Number(form.get("timeId"))  : null,
+    themeId:  form.get("themeId") ? Number(form.get("themeId")) : null,
+    memberId: memberId ? Number(memberId) : null,
   };
+  if (!payload.memberId) {
+    setMessage("회원을 검색하여 선택해 주세요.", true);
+    return;
+  }
   if (!payload.date || !payload.timeId || !payload.themeId) {
     setMessage("모든 필드를 입력해 주세요.", true);
     return;
@@ -180,6 +238,9 @@ $("#createBtn").addEventListener("click", async () => {
   try {
     const created = await api("/admin/reservations", { method: "POST", body: JSON.stringify(payload) });
     $("#createForm").reset();
+    $("#selectedMemberId").value = "";
+    $("#selectedMemberLabel").textContent = "";
+    $("#memberSearchResult").style.display = "none";
     await refreshList();
     setMessage(`추가 완료 · #${created.id} ${created.memberName ?? ""} / ${created.date} ${created.time?.startAt ?? ""}`);
   } catch (e) {
@@ -271,10 +332,10 @@ $("#applyFilter").addEventListener("click", async () => {
 });
 
 $("#resetFilter").addEventListener("click", async () => {
-  $("#filterMemberId").value = "";
-  $("#filterFrom").value     = "";
-  $("#filterTo").value       = "";
-  $("#filterTheme").value    = "";
+  $("#filterMemberName").value = "";
+  $("#filterFrom").value       = "";
+  $("#filterTo").value         = "";
+  $("#filterTheme").value      = "";
   try { await refreshList(); setMessage("필터를 초기화했습니다."); }
   catch (e) { setMessage(e.message, true); }
 });

@@ -39,8 +39,8 @@
     </div>
     <div class="filter-bar" style="margin-bottom:0;">
       <div class="field">
-        <label>회원 ID</label>
-        <input id="filterMemberId" placeholder="숫자 ID" type="number" min="1" />
+        <label>회원 이름</label>
+        <input id="filterMemberName" placeholder="이름 검색 (부분 일치)" type="text" />
       </div>
       <div class="field">
         <label>시작 날짜</label>
@@ -64,6 +64,17 @@
     <h2>새 예약 등록</h2>
     <p class="panel-sub">관리자 세션으로 예약을 직접 생성한다.</p>
     <form class="grid-form" id="createForm" onsubmit="return false;">
+      <!-- 회원 검색 -->
+      <div class="field" style="grid-column: span 2;">
+        <label>회원 검색</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="memberSearchInput" placeholder="이름 입력 후 검색" type="text" style="flex:1;" />
+          <button class="ghost" id="memberSearchBtn" type="button" style="white-space:nowrap;">검색</button>
+        </div>
+        <div id="memberSearchResult" style="display:none; margin-top:6px; border:1px solid var(--border); border-radius:6px; overflow:hidden; max-height:180px; overflow-y:auto;"></div>
+        <input id="selectedMemberId" type="hidden" />
+        <p id="selectedMemberLabel" style="margin-top:6px; font-size:13px; color:var(--muted); min-height:20px;"></p>
+      </div>
       <div class="field">
         <label>날짜</label>
         <input name="date" required type="date" />
