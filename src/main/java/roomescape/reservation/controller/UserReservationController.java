@@ -70,9 +70,10 @@ public class UserReservationController {
     @PutMapping("/{id}")
     public ResponseEntity<ReservationResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody ReservationRequest request
+            @Valid @RequestBody ReservationRequest request,
+            @LoginMember Member member
     ) {
-        Reservation reservation = reservationService.update(id, request);
+        Reservation reservation = reservationService.updateByMember(id, request, member.getId());
         return ResponseEntity.ok(ReservationResponse.from(reservation));
     }
 }

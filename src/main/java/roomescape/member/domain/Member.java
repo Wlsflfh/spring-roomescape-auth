@@ -28,6 +28,10 @@ public class Member {
         return new Member(null, loginId, name, password);
     }
 
+    public boolean isEquals(Long id) {
+        return this.id.equals(id);
+    }
+
     private void validateText(String value, String obj, int maxSize) {
         validateNotNull(value, String.format("%s는 반드시 입력해야 합니다.", obj));
         if (value.isBlank()) {

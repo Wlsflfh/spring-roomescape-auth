@@ -85,6 +85,10 @@ public class Reservation {
         }
     }
 
+    public boolean isEqualId(Long id) {
+        return member.isEquals(id);
+    }
+
     private boolean isReserved() {
         return this.status == ReservationStatus.RESERVED;
     }

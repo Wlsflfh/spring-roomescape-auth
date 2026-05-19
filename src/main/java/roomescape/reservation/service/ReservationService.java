@@ -67,6 +67,17 @@ public class ReservationService {
     }
 
     @Transactional
+    public Reservation updateByMember(Long id, ReservationRequest request, Long memberId) {
+        Reservation existing = getById(id);
+
+        if (!existing.isEqualId(memberId)) {
+            throw new ForbiddenException("본인의 예약만 수정할 수 있습니다.");
+        }
+
+        return update(id, request);
+    }
+
+    @Transactional
     public Reservation update(Long id, ReservationRequest request) {
         Reservation existing = getById(id);
         ReservationTime time = reservationTimeService.getById(request.timeId());
