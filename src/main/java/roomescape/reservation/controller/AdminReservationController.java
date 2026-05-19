@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import roomescape.auth.annotation.LoginMember;
+import roomescape.member.domain.Member;
 import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.controller.dto.ReservationResponse;
 import roomescape.reservation.domain.Reservation;
@@ -27,12 +29,12 @@ public class AdminReservationController {
 
     @GetMapping
     public ResponseEntity<List<ReservationResponse>> readAllByFilter(
-            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long memberId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) Long themeId
     ) {
-        List<ReservationResponse> responses = reservationService.findByFilter(name, from, to, themeId)
+        List<ReservationResponse> responses = reservationService.findByFilter(memberId, from, to, themeId)
                 .stream()
                 .map(ReservationResponse::from)
                 .toList();
@@ -40,8 +42,11 @@ public class AdminReservationController {
     }
 
     @PostMapping
-    public ResponseEntity<ReservationResponse> create(@Valid @RequestBody ReservationRequest requestDto) {
-        Reservation reservation = reservationService.save(requestDto);
+    public ResponseEntity<ReservationResponse> create(
+            @Valid @RequestBody ReservationRequest request,
+            @LoginMember Member member
+    ) {
+        Reservation reservation = reservationService.save(request, member);
         ReservationResponse response = ReservationResponse.from(reservation);
         return ResponseEntity
                 .created(URI.create("/reservations/" + response.id()))
@@ -55,8 +60,11 @@ public class AdminReservationController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ReservationResponse> update(@PathVariable Long id, @Valid @RequestBody ReservationRequest requestDto) {
-        Reservation reservation = reservationService.update(id, requestDto);
+    public ResponseEntity<ReservationResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody ReservationRequest request
+    ) {
+        Reservation reservation = reservationService.update(id, request);
         return ResponseEntity.ok(ReservationResponse.from(reservation));
     }
 }

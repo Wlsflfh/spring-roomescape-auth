@@ -2,6 +2,7 @@ package roomescape.reservation.domain;
 
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.InvalidDomainStateException;
+import roomescape.member.domain.Member;
 import roomescape.theme.domain.Theme;
 import roomescape.time.domain.ReservationTime;
 
@@ -10,10 +11,8 @@ import java.time.LocalDateTime;
 
 public class Reservation {
 
-    private static final int MAX_NAME_LENGTH = 10;
-
     private final Long id;
-    private final String name;
+    private final Member member;
     private final LocalDate date;
     private final ReservationTime time;
     private final Theme theme;
@@ -21,20 +20,20 @@ public class Reservation {
 
     public Reservation(
             Long id,
-            String name,
+            Member member,
             LocalDate date,
             ReservationTime time,
             Theme theme,
             ReservationStatus status
     ) {
-        validateName(name);
+        validateNotNull(member, "예약자는 필수입니다.");
         validateNotNull(date, "예약 날짜는 필수입니다.");
         validateNotNull(time, "예약 시간은 필수입니다.");
         validateNotNull(theme, "예약 테마는 필수입니다.");
         validateNotNull(status, "예약 상태는 필수입니다.");
 
         this.id = id;
-        this.name = name;
+        this.member = member;
         this.date = date;
         this.time = time;
         this.theme = theme;
@@ -42,19 +41,18 @@ public class Reservation {
     }
 
     public static Reservation create(
-            String name,
+            Member member,
             LocalDate date,
             ReservationTime time,
             Theme theme,
             LocalDateTime now
     ) {
-        Reservation reservation = new Reservation(null, name, date, time, theme, ReservationStatus.RESERVED);
+        Reservation reservation = new Reservation(null, member, date, time, theme, ReservationStatus.RESERVED);
         reservation.validateNotPast(now);
         return reservation;
     }
 
     public Reservation update(
-            String name,
             LocalDate date,
             ReservationTime time,
             Theme theme,
@@ -64,14 +62,14 @@ public class Reservation {
             throw new BusinessRuleViolationException("이미 취소되었거나 완료된 예약은 수정할 수 없습니다.");
         }
 
-        Reservation updated = new Reservation(this.id, name, date, time, theme, this.status);
+        Reservation updated = new Reservation(this.id, this.member, date, time, theme, this.status);
         updated.validateNotPast(now);
         return updated;
     }
 
     public Reservation convertStatusByCurrentTime(LocalDateTime now) {
         if (isReserved() && isCompleted(now)) {
-            return new Reservation(this.id, this.name, this.date, this.time, this.theme, ReservationStatus.COMPLETED);
+            return new Reservation(this.id, this.member, this.date, this.time, this.theme, ReservationStatus.COMPLETED);
         }
 
         return this;
@@ -103,20 +101,6 @@ public class Reservation {
         }
     }
 
-    private void validateName(String name) {
-        validateNotNull(name, "예약자 이름은 반드시 입력해야 합니다.");
-
-        if (name.isBlank()) {
-            throw new InvalidDomainStateException("예약자 이름은 반드시 입력해야 합니다.");
-        }
-
-        if (name.length() > MAX_NAME_LENGTH) {
-            throw new BusinessRuleViolationException(
-                    String.format("이름은 %d글자 이하여야 합니다. (현재 이름의 글자 수: %d)", MAX_NAME_LENGTH, name.length())
-            );
-        }
-    }
-
     private void validateNotNull(Object obj, String message) {
         if (obj == null) {
             throw new InvalidDomainStateException(message);
@@ -127,8 +111,8 @@ public class Reservation {
         return id;
     }
 
-    public String getName() {
-        return name;
+    public Member getMember() {
+        return member;
     }
 
     public LocalDate getDate() {
