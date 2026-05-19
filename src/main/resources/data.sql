@@ -62,7 +62,7 @@ INSERT INTO reservation (member_id, reservation_date, time_id, theme_id, status)
 (1, '2026-05-05', 2, 2,  'RESERVED'),
 (1, '2026-05-05', 3, 3,  'RESERVED'),
 (2, '2026-05-05', 4, 4,  'RESERVED'),
-(1, '2026-05-05', 5, 5,  'RESERVED'),
+(1, '2026-05-05', 5, 5,  'CANCELED'),
 (1, '2026-05-05', 10, 5, 'RESERVED'),
 (1, '2026-05-04', 1, 6,  'RESERVED'),
 (2, '2026-05-04', 2, 7,  'CANCELED'),
