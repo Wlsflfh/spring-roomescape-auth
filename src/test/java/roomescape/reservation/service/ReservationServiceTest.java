@@ -12,6 +12,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.DuplicateResourceException;
+import roomescape.member.domain.Member;
 import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
@@ -41,6 +42,8 @@ class ReservationServiceTest {
     private LocalDateTime today;
     private LocalDateTime pastDate;
     private Long themeId;
+    private Member member;
+    private Member otherMember;
 
     @BeforeEach
     void setUp() {
@@ -48,6 +51,11 @@ class ReservationServiceTest {
         futureDate = today.plusDays(1);
         pastDate = today.minusDays(1);
         themeId = insertTheme("우테코", "우테코 전용 테마", "https://example.com/thumb.jpg");
+
+        Long memberId = insertMember("brown", "브라운", "password1");
+        Long otherMemberId = insertMember("james", "제임스", "password2");
+        member = new Member(memberId, "brown", "브라운", "password1");
+        otherMember = new Member(otherMemberId, "james", "제임스", "password2");
     }
 
     @Nested
@@ -57,17 +65,14 @@ class ReservationServiceTest {
         @Test
         @DisplayName("정상 요청이면 예약을 저장하고 생성된 예약을 반환한다.")
         void saveSuccess() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
 
-            // when
-            Reservation saved = reservationService.save(request);
+            Reservation saved = reservationService.save(request, member);
 
-            // then
             assertThat(saved.getId()).isNotNull();
-            assertThat(saved.getName()).isEqualTo("브라운");
+            assertThat(saved.getMember().getId()).isEqualTo(member.getId());
             assertThat(saved.getDate()).isEqualTo(reservationDate);
             assertThat(saved.getTime().getId()).isEqualTo(timeId);
             assertThat(saved.getTheme().getId()).isEqualTo(themeId);
@@ -76,42 +81,36 @@ class ReservationServiceTest {
         @Test
         @DisplayName("예약 일자가 과거이면 BusinessRuleViolationException 이 발생하고 저장되지 않는다.")
         void saveFailWhenPastDate() {
-            // given
             LocalDate reservationDate = pastDate.toLocalDate();
             Long timeId = insertReservationTime(pastDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
 
-            // when & then
-            assertThatThrownBy(() -> reservationService.save(request))
+            assertThatThrownBy(() -> reservationService.save(request, member))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
 
         @Test
         @DisplayName("오늘 날짜라도 예약 시간이 현재 시각보다 이전이면 BusinessRuleViolationException 예외가 발생한다.")
         void saveFailWhenTodayButPastTime() {
-            // given
             LocalDate reservationDate = today.toLocalDate();
             Long timeId = insertReservationTime(today.toLocalTime().minusMinutes(30));
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
 
-            // when & then
-            assertThatThrownBy(() -> reservationService.save(request))
+            assertThatThrownBy(() -> reservationService.save(request, member))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
 
         @Test
         @DisplayName("동일한 날짜/시간/테마 조합의 예약이 이미 존재하면 DuplicateResourceException 이 발생한다.")
         void saveFailWhenDuplicate() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
-            reservationService.save(request);
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
+            reservationService.save(request, member);
 
-            ReservationRequest duplicate = new ReservationRequest("제임스", reservationDate, timeId, themeId);
+            ReservationRequest duplicate = new ReservationRequest(reservationDate, timeId, themeId);
 
-            // when & then
-            assertThatThrownBy(() -> reservationService.save(duplicate))
+            assertThatThrownBy(() -> reservationService.save(duplicate, otherMember))
                     .isInstanceOf(DuplicateResourceException.class);
         }
     }
@@ -123,16 +122,13 @@ class ReservationServiceTest {
         @Test
         @DisplayName("ID에 해당하는 예약의 상태를 CANCELED 로 변경한다.")
         void cancelByIdRemovesReservation() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            Reservation saved = reservationService.save(new ReservationRequest("브라운", reservationDate, timeId, themeId));
+            Reservation saved = reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
 
-            // when
             reservationService.cancelById(saved.getId());
             List<Reservation> results = reservationService.findByFilter(null, null, null, null);
 
-            // then
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getStatus()).isEqualTo(ReservationStatus.CANCELED);
         }
@@ -140,13 +136,10 @@ class ReservationServiceTest {
         @Test
         @DisplayName("이미 완료된 예약에 대해서 취소 요청 시, 예외를 발생한다.")
         void cancelCompleted() {
-            // given
             LocalDate reservationDate = pastDate.toLocalDate();
             Long timeId = insertReservationTime(pastDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
-            Long id = insertReservation(request, ReservationStatus.RESERVED);
+            Long id = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
 
-            // when & then
             assertThatThrownBy(() -> reservationService.cancelById(id))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
@@ -154,20 +147,16 @@ class ReservationServiceTest {
         @Test
         @DisplayName("이미 CANCELED 상태인 예약을 취소 요청 시, 멱등성을 보장한다.")
         void alreadyCanceled() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            Reservation saved = reservationService.save(new ReservationRequest("브라운", reservationDate, timeId, themeId));
+            Reservation saved = reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
 
-            // when
-            reservationService.cancelById(saved.getId());
             reservationService.cancelById(saved.getId());
             reservationService.cancelById(saved.getId());
             reservationService.cancelById(saved.getId());
 
             List<Reservation> results = reservationService.findByFilter(null, null, null, null);
 
-            // then
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getStatus()).isEqualTo(ReservationStatus.CANCELED);
         }
@@ -180,68 +169,61 @@ class ReservationServiceTest {
         @Test
         @DisplayName("검색 조건을 입력하지 않으면 전체 데이터를 반환한다.")
         void findAll() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            reservationService.save(new ReservationRequest("브라운", reservationDate, timeId, themeId));
-            reservationService.save(new ReservationRequest("제임스", reservationDate.plusDays(1), timeId, themeId));
-            reservationService.save(new ReservationRequest("검프", reservationDate.plusDays(2), timeId, themeId));
-            reservationService.save(new ReservationRequest("류시", reservationDate.plusDays(3), timeId, themeId));
+            reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
 
-            // when
+            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg");
+            reservationService.save(new ReservationRequest(reservationDate.plusDays(1), timeId, themeId2), member);
+            reservationService.save(new ReservationRequest(reservationDate.plusDays(2), timeId, themeId), otherMember);
+
             List<Reservation> results = reservationService.findByFilter(null, null, null, null);
 
-            // then
-            assertThat(results).hasSize(4);
+            assertThat(results).hasSize(3);
+        }
+
+        @Test
+        @DisplayName("memberId 조건으로 해당 회원의 예약만 필터링하여 반환한다.")
+        void searchByMember() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+
+            reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
+            reservationService.save(new ReservationRequest(reservationDate.plusDays(1), timeId, themeId), member);
+
+            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg");
+            reservationService.save(new ReservationRequest(reservationDate.plusDays(2), timeId, themeId2), otherMember);
+
+            List<Reservation> results = reservationService.findByFilter(member.getId(), null, null, null);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(r -> r.getMember().getId()).containsOnly(member.getId());
         }
 
         @Test
         @DisplayName("모든 검색 조건이 다 맞아야 해당하는 예약을 필터링하여 반환한다.")
         void searchWithAllFilters() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            reservationService.save(new ReservationRequest("브라운", reservationDate, timeId, themeId));
-            reservationService.save(new ReservationRequest("제임스", reservationDate.plusDays(1), timeId, themeId));
 
-            // when
-            List<Reservation> results = reservationService.findByFilter("브라운", reservationDate, reservationDate.plusDays(1), themeId);
+            reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
+            reservationService.save(new ReservationRequest(reservationDate.plusDays(1), timeId, themeId), otherMember);
 
-            // then
+            List<Reservation> results = reservationService.findByFilter(
+                    member.getId(), reservationDate, reservationDate.plusDays(1), themeId);
+
             assertThat(results).hasSize(1);
-            assertThat(results.get(0).getName()).isEqualTo("브라운");
+            assertThat(results.get(0).getMember().getId()).isEqualTo(member.getId());
             assertThat(results.get(0).getTheme().getId()).isEqualTo(themeId);
-        }
-
-        @Test
-        @DisplayName("이름 조건만 주어지면 해당 이름을 가진 모든 예약을 반환한다.")
-        void searchByNameOnly() {
-            // given
-            LocalDate reservationDate = futureDate.toLocalDate();
-            Long timeId = insertReservationTime(futureDate.toLocalTime());
-
-            reservationService.save(new ReservationRequest("브라운", reservationDate, timeId, themeId));
-            reservationService.save(new ReservationRequest("브라운", reservationDate.plusDays(1), timeId, themeId));
-            reservationService.save(new ReservationRequest("브라운", reservationDate.plusDays(4), timeId, themeId));
-            reservationService.save(new ReservationRequest("제임스", reservationDate.plusDays(3), timeId, themeId));
-
-            // when
-            List<Reservation> results = reservationService.findByFilter("브라운", null, null, null);
-
-            // then
-            assertThat(results).hasSize(3);
-            assertThat(results).extracting(Reservation::getName).containsOnly("브라운");
         }
 
         @Test
         @DisplayName("시작 날짜(from)가 종료 날짜(to)보다 미래이면 BusinessRuleViolationException 이 발생한다.")
         void searchFailWhenFromAfterTo() {
-            // given
             LocalDate todayDate = futureDate.toLocalDate();
             LocalDate tomorrowDate = futureDate.toLocalDate().plusDays(1);
 
-            // when - then
-            assertThatThrownBy(() -> reservationService.findByFilter("브라운", tomorrowDate, todayDate, null))
+            assertThatThrownBy(() -> reservationService.findByFilter(null, tomorrowDate, todayDate, null))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
     }
@@ -253,18 +235,15 @@ class ReservationServiceTest {
         @Test
         @DisplayName("정상 요청이면 예약을 변경하고 변경된 예약을 반환한다.")
         void updateSuccess() {
-            // given
             LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId = insertReservationTime(futureDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
-            Long generatedId = insertReservation(request, ReservationStatus.RESERVED);
+            Long generatedId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
 
-            // when
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
             Reservation updated = reservationService.update(generatedId, request);
 
-            // then
             assertThat(updated.getId()).isEqualTo(generatedId);
-            assertThat(updated.getName()).isEqualTo("브라운");
+            assertThat(updated.getMember().getId()).isEqualTo(member.getId());
             assertThat(updated.getDate()).isEqualTo(reservationDate);
             assertThat(updated.getTime().getId()).isEqualTo(timeId);
             assertThat(updated.getTheme().getId()).isEqualTo(themeId);
@@ -273,71 +252,77 @@ class ReservationServiceTest {
         @Test
         @DisplayName("예약 일자가 과거이면 BusinessRuleViolationException 이 발생하고 변경되지 않는다.")
         void updateFailWhenPastDate() {
-            // given
             LocalDate reservationDate = pastDate.toLocalDate();
             Long timeId = insertReservationTime(pastDate.toLocalTime());
-            ReservationRequest request = new ReservationRequest("브라운", reservationDate, timeId, themeId);
-            Long generatedId = insertReservation(request, ReservationStatus.RESERVED);
+            Long generatedId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
 
-            // when & then
-            assertThatThrownBy(() ->  reservationService.update(generatedId, request))
+            ReservationRequest request = new ReservationRequest(reservationDate, timeId, themeId);
+
+            assertThatThrownBy(() -> reservationService.update(generatedId, request))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
 
         @Test
         @DisplayName("동일한 날짜/시간/테마 조합의 예약이 이미 존재하면 DuplicateResourceException 이 발생한다.")
         void updateFailWhenDuplicate() {
-            // given
-            LocalDate reservationDate1 = futureDate.toLocalDate();
+            LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId1 = insertReservationTime(futureDate.toLocalTime());
-            ReservationRequest request1 = new ReservationRequest("브라운", reservationDate1, timeId1, themeId);
-            Long brownId = insertReservation(request1, ReservationStatus.RESERVED);
+            Long brownId = insertReservation(member.getId(), reservationDate, timeId1, themeId, ReservationStatus.RESERVED);
 
-            LocalDate reservationDate2 = futureDate.toLocalDate();
             Long timeId2 = insertReservationTime(futureDate.toLocalTime().minusHours(1));
-            ReservationRequest request2 = new ReservationRequest("제임스", reservationDate2, timeId2, themeId);
-            Long jamesId = insertReservation(request2, ReservationStatus.RESERVED);
+            Long jamesId = insertReservation(otherMember.getId(), reservationDate, timeId2, themeId, ReservationStatus.RESERVED);
 
-            ReservationRequest updateToBrownTime = new ReservationRequest("제임스", futureDate.toLocalDate(), timeId1, themeId);
+            ReservationRequest updateToBrownTime = new ReservationRequest(reservationDate, timeId1, themeId);
 
-            // when & then
             assertThatThrownBy(() -> reservationService.update(jamesId, updateToBrownTime))
                     .isInstanceOf(DuplicateResourceException.class);
         }
 
         @Test
-        @DisplayName("취소된 예약은 예약 가능하다.")
-        void updateCanceled() {
-            // given
-            LocalDate reservationDate1 = futureDate.toLocalDate();
+        @DisplayName("취소된 슬롯은 예약 가능하다.")
+        void updateWhenSlotIsCanceled() {
+            LocalDate reservationDate = futureDate.toLocalDate();
             Long timeId1 = insertReservationTime(futureDate.toLocalTime());
-            ReservationRequest request1 = new ReservationRequest("브라운", reservationDate1, timeId1, themeId);
-            Long brownId = insertReservation(request1, ReservationStatus.CANCELED);
+            Long brownId = insertReservation(member.getId(), reservationDate, timeId1, themeId, ReservationStatus.CANCELED);
 
-            LocalDate reservationDate2 = futureDate.toLocalDate();
             Long timeId2 = insertReservationTime(futureDate.toLocalTime().minusHours(1));
-            ReservationRequest request2 = new ReservationRequest("제임스", reservationDate2, timeId2, themeId);
-            Long jamesId = insertReservation(request2, ReservationStatus.RESERVED);
+            Long jamesId = insertReservation(otherMember.getId(), reservationDate, timeId2, themeId, ReservationStatus.RESERVED);
 
-            ReservationRequest updateToBrownTime = new ReservationRequest("제임스", futureDate.toLocalDate(), timeId1, themeId);
+            ReservationRequest updateToBrownTime = new ReservationRequest(reservationDate, timeId1, themeId);
 
-            // when & then
-            assertThatCode(() ->  reservationService.update(jamesId, updateToBrownTime))
+            assertThatCode(() -> reservationService.update(jamesId, updateToBrownTime))
                     .doesNotThrowAnyException();
         }
     }
 
-    private Long insertReservation(ReservationRequest request, ReservationStatus status) {
-        String sql = "INSERT INTO reservation (name, reservation_date, time_id, theme_id, status) VALUES (?, ?, ?, ?, ?)";
+    // ── helpers ────────────────────────────────────────────────────────────────
+
+    private Long insertReservation(Long memberId, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {
+        String sql = "INSERT INTO reservation (member_id, reservation_date, time_id, theme_id, status) VALUES (?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
-            ps.setString(1, request.name());
-            ps.setDate(2, Date.valueOf(request.date()));
-            ps.setLong(3, request.timeId());
-            ps.setLong(4, request.themeId());
+            ps.setLong(1, memberId);
+            ps.setDate(2, Date.valueOf(date));
+            ps.setLong(3, timeId);
+            ps.setLong(4, themeId);
             ps.setString(5, status.name());
+            return ps;
+        }, keyHolder);
+
+        return keyHolder.getKey().longValue();
+    }
+
+    private Long insertMember(String loginId, String name, String password) {
+        String sql = "INSERT INTO member (login_id, name, password) VALUES (?, ?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, loginId);
+            ps.setString(2, name);
+            ps.setString(3, password);
             return ps;
         }, keyHolder);
 

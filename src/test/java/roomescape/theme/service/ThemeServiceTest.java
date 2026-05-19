@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.DuplicateResourceException;
@@ -15,8 +17,8 @@ import roomescape.reservation.domain.ReservationStatus;
 import roomescape.theme.controller.dto.ThemeRequest;
 import roomescape.theme.domain.Theme;
 
+import java.sql.PreparedStatement;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -33,13 +35,13 @@ class ThemeServiceTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private LocalDateTime futureDate;
-    private LocalDateTime today;
+    private LocalDate today;
+    private Long memberId;
 
     @BeforeEach
     void setUp() {
-        today = LocalDateTime.now().withNano(0);
-        futureDate = today.plusDays(1);
+        today = LocalDate.now();
+        memberId = insertMember("testuser", "테스터", "password");
     }
 
     @Nested
@@ -49,13 +51,10 @@ class ThemeServiceTest {
         @Test
         @DisplayName("새로운 테마 이름이면 정상적으로 저장한다.")
         void saveSuccess() {
-            // given
             ThemeRequest request = new ThemeRequest("공포의 수랏간", "매우 무섭습니다.", "https://example.com/image.png");
 
-            // when
             Theme saved = themeService.save(request);
 
-            // then
             assertThat(saved.getId()).isNotNull();
             assertThat(saved.getName()).isEqualTo("공포의 수랏간");
             assertThat(themeService.findAll()).hasSize(1);
@@ -64,10 +63,8 @@ class ThemeServiceTest {
         @Test
         @DisplayName("이미 존재하는 테마 이름이면 DuplicateResourceException 이 발생한다.")
         void saveFailWhenDuplicateName() {
-            // given
             themeService.save(new ThemeRequest("중복 이름", "설명", "https://example.com/a.png"));
 
-            // when & then
             assertThatThrownBy(() ->
                     themeService.save(new ThemeRequest("중복 이름", "다른 설명", "https://example.com/b.png"))
             )
@@ -83,13 +80,10 @@ class ThemeServiceTest {
         @Test
         @DisplayName("존재하는 ID 면 해당 테마를 반환한다.")
         void getByIdSuccess() {
-            // given
             Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
 
-            // when
             Theme result = themeService.getById(saved.getId());
 
-            // then
             assertThat(result.getId()).isEqualTo(saved.getId());
             assertThat(result.getName()).isEqualTo("테마");
         }
@@ -110,26 +104,20 @@ class ThemeServiceTest {
         @Test
         @DisplayName("참조되지 않는 테마면 정상적으로 삭제한다.")
         void deleteByIdSuccess() {
-            // given
             Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
 
-            // when
             themeService.deleteById(saved.getId());
 
-            // then
             assertThat(themeService.findAll()).isEmpty();
         }
 
         @Test
         @DisplayName("예약에 사용 중인 테마는 BusinessRuleViolationException 이 발생하고 삭제되지 않는다.")
         void deleteByIdFailWhenInUse() {
-            // given
-            LocalDate reservationDate = futureDate.toLocalDate();
-            Long timeId = insertReservationTime(futureDate.toLocalTime());
+            Long timeId = insertReservationTime(LocalTime.of(10, 0));
             Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
-            insertReservation("브라운", reservationDate, timeId, saved.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, today.plusDays(1), timeId, saved.getId(), ReservationStatus.RESERVED);
 
-            // when & then
             assertThatThrownBy(() -> themeService.deleteById(saved.getId()))
                     .isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessageContaining("이 테마를 참조하는 예약이 있어 삭제할 수 없습니다.");
@@ -145,14 +133,11 @@ class ThemeServiceTest {
         @Test
         @DisplayName("저장된 모든 테마를 반환한다.")
         void findAllReturnsAll() {
-            // given
             themeService.save(new ThemeRequest("A", "설명A", "https://example.com/a.png"));
             themeService.save(new ThemeRequest("B", "설명B", "https://example.com/b.png"));
 
-            // when
             List<Theme> result = themeService.findAll();
 
-            // then
             assertThat(result).extracting(Theme::getName).containsExactlyInAnyOrder("A", "B");
         }
 
@@ -170,10 +155,8 @@ class ThemeServiceTest {
         @Test
         @DisplayName("최근 7일 이내 예약 수가 많은 테마를 내림차순으로 반환한다. (오늘은 포함되지 않는다.)")
         void findPopularThemesReturnsTopByRecentReservations() {
-            // given
-            LocalDate reservationDate = today.toLocalDate();
-            LocalDate day1Ago = reservationDate.minusDays(1);
-            LocalDate day7Ago = reservationDate.minusDays(7);
+            LocalDate day1Ago = today.minusDays(1);
+            LocalDate day7Ago = today.minusDays(7);
             Theme themeA = themeService.save(new ThemeRequest("A", "설명A", "https://example.com/a.png"));
             Theme themeB = themeService.save(new ThemeRequest("B", "설명B", "https://example.com/b.png"));
             Theme themeC = themeService.save(new ThemeRequest("C", "설명C", "https://example.com/c.png"));
@@ -182,17 +165,15 @@ class ThemeServiceTest {
             Long t11 = insertReservationTime(LocalTime.of(11, 0));
             Long t12 = insertReservationTime(LocalTime.of(12, 0));
 
-            insertReservation("u1", day1Ago, t10, themeA.getId(), ReservationStatus.RESERVED);
-            insertReservation("u2", day1Ago, t11, themeA.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day1Ago, t10, themeA.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day1Ago, t11, themeA.getId(), ReservationStatus.RESERVED);
 
-            insertReservation("u3", day7Ago, t11, themeB.getId(), ReservationStatus.RESERVED);
-            insertReservation("u4", day7Ago, t10, themeB.getId(), ReservationStatus.RESERVED);
-            insertReservation("u5", day7Ago, t12, themeB.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day7Ago, t11, themeB.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day7Ago, t10, themeB.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day7Ago, t12, themeB.getId(), ReservationStatus.RESERVED);
 
-            // when
             List<Theme> popular = themeService.findPopularThemes();
 
-            // then
             assertThat(popular).extracting(Theme::getName).containsExactly("B", "A");
             assertThat(popular).extracting(Theme::getName).doesNotContain("C");
         }
@@ -200,17 +181,13 @@ class ThemeServiceTest {
         @Test
         @DisplayName("7일 보다 더 이전의 예약은 인기 테마 집계에서 제외된다.")
         void findPopularThemesExcludesOldReservations() {
-            // given
-            LocalDate reservationDate = today.toLocalDate();
-            LocalDate day8Ago = reservationDate.minusDays(8);
+            LocalDate day8Ago = today.minusDays(8);
             Theme theme = themeService.save(new ThemeRequest("Old", "설명", "https://example.com/o.png"));
             Long timeId = insertReservationTime(LocalTime.of(10, 0));
-            insertReservation("oldUser", day8Ago, timeId, theme.getId(), ReservationStatus.RESERVED);
+            insertReservation(memberId, day8Ago, timeId, theme.getId(), ReservationStatus.RESERVED);
 
-            // when
             List<Theme> popular = themeService.findPopularThemes();
 
-            // then
             assertThat(popular).extracting(Theme::getName).doesNotContain("Old");
         }
     }
@@ -222,16 +199,13 @@ class ThemeServiceTest {
         @Test
         @DisplayName("존재하는 ID 의 테마를 수정한다.")
         void updateSuccess() {
-            // given
             Theme saved = themeService.save(new ThemeRequest("OLD", "설명", "https://example.com/a.png"));
 
-            // when
             Theme updated = themeService.update(
                     saved.getId(),
                     new ThemeRequest("NEW", "새 설명", "https://example.com/b.png")
             );
 
-            // then
             assertThat(updated.getId()).isEqualTo(saved.getId());
             assertThat(updated.getName()).isEqualTo("NEW");
             assertThat(themeService.getById(saved.getId()).getName()).isEqualTo("NEW");
@@ -240,11 +214,9 @@ class ThemeServiceTest {
         @Test
         @DisplayName("이름을 다른 테마와 같은 값으로 변경하려 하면 DuplicateResourceException 이 발생한다.")
         void updateFailWhenDuplicateName() {
-            // given
             themeService.save(new ThemeRequest("이미있음", "설명1", "https://example.com/a.png"));
             Theme target = themeService.save(new ThemeRequest("바꿀것", "설명2", "https://example.com/b.png"));
 
-            // when & then
             assertThatThrownBy(() -> themeService.update(
                     target.getId(),
                     new ThemeRequest("이미있음", "설명3", "https://example.com/c.png")
@@ -263,6 +235,21 @@ class ThemeServiceTest {
         }
     }
 
+    // ── helpers ────────────────────────────────────────────────────────────────
+
+    private Long insertMember(String loginId, String name, String password) {
+        String sql = "INSERT INTO member (login_id, name, password) VALUES (?, ?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, loginId);
+            ps.setString(2, name);
+            ps.setString(3, password);
+            return ps;
+        }, keyHolder);
+        return keyHolder.getKey().longValue();
+    }
+
     private Long insertReservationTime(LocalTime startAt) {
         jdbcTemplate.update("INSERT INTO reservation_time (start_at) VALUES (?)", startAt.toString());
         return jdbcTemplate.queryForObject(
@@ -272,10 +259,10 @@ class ThemeServiceTest {
         );
     }
 
-    private void insertReservation(String name, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {
+    private void insertReservation(Long memberId, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {
         jdbcTemplate.update(
-                "INSERT INTO reservation (name, reservation_date, time_id, theme_id, status) VALUES (?, ?, ?, ?, ?)",
-                name, date.toString(), timeId, themeId, status.name()
+                "INSERT INTO reservation (member_id, reservation_date, time_id, theme_id, status) VALUES (?, ?, ?, ?, ?)",
+                memberId, date.toString(), timeId, themeId, status.name()
         );
     }
 }
