@@ -1,9 +1,31 @@
 /**
  * 인증 공통 유틸리티
  *
- * localStorage 키: 'loginMember' → { id, loginId, name }
+ * localStorage 키:
+ *   'loginMember' → { id, loginId, name }
+ *   'authToken'   → X-Auth-Token 세션 ID
+ *
  * 로그인 → setMember()   로그아웃 → logout()
  */
+
+/* ── 전역 fetch 래핑: 모든 요청에 X-Auth-Token 헤더 자동 추가 ── */
+(function wrapFetch() {
+  const _fetch = window.fetch;
+  window.fetch = function (url, options = {}) {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      options.headers = { 'X-Auth-Token': token, ...options.headers };
+    }
+    return _fetch(url, options).then((response) => {
+      const newToken = response.headers.get('X-Auth-Token');
+      if (newToken) {
+        localStorage.setItem('authToken', newToken);
+      }
+      return response;
+    });
+  };
+})();
+
 const Auth = (() => {
   const KEY = 'loginMember';
 
@@ -18,6 +40,7 @@ const Auth = (() => {
 
   function clear() {
     localStorage.removeItem(KEY);
+    localStorage.removeItem('authToken');
   }
 
   function isLoggedIn() {
