@@ -12,6 +12,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.DuplicateResourceException;
+import roomescape.exception.ForbiddenException;
 import roomescape.member.domain.Member;
 import roomescape.member.domain.MemberRole;
 import roomescape.reservation.controller.dto.ReservationRequest;
@@ -299,6 +300,127 @@ class ReservationServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("findByManager 메서드는")
+    class FindByManager {
+
+        @Test
+        @DisplayName("매니저가 관리하는 매장의 예약 목록을 반환한다.")
+        void returnsReservationsForManagerStores() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+
+            // 매니저 — 테스트 매장(themeId 소속)만 관리
+            Long managerId = insertManagerMember("mgr1", "매니저1", "pw");
+            Long storeId = jdbcTemplate.queryForObject(
+                    "SELECT store_id FROM theme WHERE id = ?", Long.class, themeId);
+            insertManagerStore(managerId, storeId);
+
+            insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
+
+            // 다른 매장 예약 — 매니저가 관리하지 않음
+            Long otherStoreId = insertStore("다른 매장", "다른 설명");
+            Long otherThemeId = insertTheme("다른 테마", "설명", "https://example.com/t.jpg", otherStoreId);
+            insertReservation(member.getId(), reservationDate.plusDays(1), timeId, otherThemeId, ReservationStatus.RESERVED);
+
+            List<Reservation> results = reservationService.findByManager(managerId);
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getTheme().getStore().getId()).isEqualTo(storeId);
+        }
+
+        @Test
+        @DisplayName("관리하는 매장이 없으면 빈 목록을 반환한다.")
+        void returnsEmptyWhenNoStores() {
+            Long managerId = insertManagerMember("mgr2", "매니저2", "pw");
+
+            List<Reservation> results = reservationService.findByManager(managerId);
+
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("cancelByIdAndManager 메서드는")
+    class CancelByIdAndManager {
+
+        @Test
+        @DisplayName("매니저가 관리하는 매장의 예약을 취소할 수 있다.")
+        void cancelSuccess() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+            Long reservationId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
+
+            Long managerId = insertManagerMember("mgr3", "매니저3", "pw");
+            Long storeId = jdbcTemplate.queryForObject(
+                    "SELECT store_id FROM theme WHERE id = ?", Long.class, themeId);
+            insertManagerStore(managerId, storeId);
+
+            reservationService.cancelByIdAndManager(reservationId, managerId);
+
+            Reservation canceled = reservationService.getById(reservationId);
+            assertThat(canceled.getStatus()).isEqualTo(ReservationStatus.CANCELED);
+        }
+
+        @Test
+        @DisplayName("관리하지 않는 매장의 예약을 취소하려 하면 ForbiddenException 이 발생한다.")
+        void cancelFailWhenNotManagerStore() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+            Long reservationId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
+
+            Long otherStoreId = insertStore("다른 매장2", "설명");
+            Long managerId = insertManagerMember("mgr4", "매니저4", "pw");
+            insertManagerStore(managerId, otherStoreId); // 다른 매장만 관리
+
+            assertThatThrownBy(() -> reservationService.cancelByIdAndManager(reservationId, managerId))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateByManager 메서드는")
+    class UpdateByManager {
+
+        @Test
+        @DisplayName("매니저가 관리하는 매장의 예약을 수정할 수 있다.")
+        void updateSuccess() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+            Long reservationId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
+
+            Long managerId = insertManagerMember("mgr5", "매니저5", "pw");
+            Long storeId = jdbcTemplate.queryForObject(
+                    "SELECT store_id FROM theme WHERE id = ?", Long.class, themeId);
+            insertManagerStore(managerId, storeId);
+
+            Long newTimeId = insertReservationTime(futureDate.toLocalTime().plusHours(2));
+            ReservationRequest request = new ReservationRequest(reservationDate.plusDays(1), newTimeId, themeId);
+
+            Reservation updated = reservationService.updateByManager(reservationId, request, managerId);
+
+            assertThat(updated.getDate()).isEqualTo(reservationDate.plusDays(1));
+            assertThat(updated.getTime().getId()).isEqualTo(newTimeId);
+        }
+
+        @Test
+        @DisplayName("관리하지 않는 매장의 예약을 수정하려 하면 ForbiddenException 이 발생한다.")
+        void updateFailWhenNotManagerStore() {
+            LocalDate reservationDate = futureDate.toLocalDate();
+            Long timeId = insertReservationTime(futureDate.toLocalTime());
+            Long reservationId = insertReservation(member.getId(), reservationDate, timeId, themeId, ReservationStatus.RESERVED);
+
+            Long otherStoreId = insertStore("다른 매장3", "설명");
+            Long managerId = insertManagerMember("mgr6", "매니저6", "pw");
+            insertManagerStore(managerId, otherStoreId);
+
+            ReservationRequest request = new ReservationRequest(reservationDate.plusDays(1), timeId, themeId);
+
+            assertThatThrownBy(() -> reservationService.updateByManager(reservationId, request, managerId))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+    }
+
     // ── helpers ────────────────────────────────────────────────────────────────
 
     private Long insertReservation(Long memberId, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {
@@ -365,6 +487,28 @@ class ReservationServiceTest {
                 "SELECT id FROM theme WHERE name = ?",
                 Long.class,
                 name
+        );
+    }
+
+    private Long insertManagerMember(String loginId, String name, String password) {
+        String sql = "INSERT INTO member (login_id, name, password, role) VALUES (?, ?, ?, 'MANAGER')";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, loginId);
+            ps.setString(2, name);
+            ps.setString(3, password);
+            return ps;
+        }, keyHolder);
+
+        return keyHolder.getKey().longValue();
+    }
+
+    private void insertManagerStore(Long managerId, Long storeId) {
+        jdbcTemplate.update(
+                "INSERT INTO manager_store (manager_id, store_id) VALUES (?, ?)",
+                managerId, storeId
         );
     }
 }
