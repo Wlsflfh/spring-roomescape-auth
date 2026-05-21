@@ -229,6 +229,47 @@ public class JdbcReservationRepository implements ReservationRepository {
     }
 
     @Override
+    public List<Reservation> findByStoreIds(List<Long> storeIds) {
+        if (storeIds.isEmpty()) {
+            return List.of();
+        }
+
+        String placeholders = storeIds.stream()
+                .map(id -> "?")
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        String sql = """
+                select
+                    r.id               as reservation_id,
+                    r.reservation_date,
+                    r.status           as reservation_status,
+                    t.id               as time_id,
+                    t.start_at         as time_start_at,
+                    h.id               as theme_id,
+                    h.name             as theme_name,
+                    h.description      as theme_description,
+                    h.thumbnail_url    as theme_thumbnail_url,
+                    s.id               as store_id,
+                    s.name             as store_name,
+                    s.description      as store_description,
+                    m.id               as member_id,
+                    m.login_id         as member_login_id,
+                    m.name             as member_name,
+                    m.password         as member_password,
+                    m.role             as member_role
+                from reservation r
+                inner join reservation_time t on r.time_id   = t.id
+                inner join theme            h on r.theme_id  = h.id
+                inner join store            s on h.store_id  = s.id
+                inner join member           m on r.member_id = m.id
+                where s.id in (%s)
+                order by r.reservation_date desc, t.start_at desc
+                """.formatted(placeholders);
+
+        return jdbcTemplate.query(sql, reservationRowMapper, storeIds.toArray());
+    }
+
+    @Override
     public boolean existsByTimeId(Long timeId) {
         return jdbcTemplate.queryForObject(
                 "select exists (select 1 from reservation where time_id = ?)", Boolean.class, timeId);

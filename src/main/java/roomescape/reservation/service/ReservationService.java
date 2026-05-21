@@ -13,6 +13,7 @@ import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
 import roomescape.reservation.repository.ReservationRepository;
+import roomescape.store.repository.ManagerStoreRepository;
 import roomescape.theme.domain.Theme;
 import roomescape.theme.service.ThemeService;
 import roomescape.time.domain.ReservationTime;
@@ -30,17 +31,20 @@ public class ReservationService {
     private final ReservationTimeService reservationTimeService;
     private final ThemeService themeService;
     private final MemberService memberService;
+    private final ManagerStoreRepository managerStoreRepository;
 
     public ReservationService(
             ReservationRepository reservationRepository,
             ReservationTimeService reservationTimeService,
             ThemeService themeService,
-            MemberService memberService
+            MemberService memberService,
+            ManagerStoreRepository managerStoreRepository
     ) {
         this.reservationRepository = reservationRepository;
         this.reservationTimeService = reservationTimeService;
         this.themeService = themeService;
         this.memberService = memberService;
+        this.managerStoreRepository = managerStoreRepository;
     }
 
     @Transactional
@@ -142,6 +146,44 @@ public class ReservationService {
         if (reservationRepository.existsByDateAndTimeIdAndThemeIdAndStatusExcludingSelf(
                 request.date(), request.timeId(), request.themeId(), id, ReservationStatus.RESERVED)) {
             throw new DuplicateResourceException("이미 해당 날짜와 시간에 예약이 존재합니다.");
+        }
+    }
+
+    public List<Reservation> findByManager(Long managerId) {
+        List<Long> storeIds = managerStoreRepository.findStoreIdsByManagerId(managerId);
+        return reservationRepository.findByStoreIds(storeIds)
+                .stream()
+                .map(r -> r.convertStatusByCurrentTime(LocalDateTime.now()))
+                .toList();
+    }
+
+    @Transactional
+    public void cancelByIdAndManager(Long id, Long managerId) {
+        Reservation reservation = getById(id);
+        validateManagerOwnsReservation(reservation, managerId);
+
+        if (reservation.isCanceled()) {
+            return;
+        }
+
+        reservation.validateCanCancel(LocalDateTime.now());
+        reservationRepository.updateStatus(id, ReservationStatus.CANCELED);
+    }
+
+    @Transactional
+    public Reservation updateByManager(Long id, ReservationRequest request, Long managerId) {
+        Reservation existing = getById(id);
+        validateManagerOwnsReservation(existing, managerId);
+
+        return update(id, request);
+    }
+
+    private void validateManagerOwnsReservation(Reservation reservation, Long managerId) {
+        List<Long> storeIds = managerStoreRepository.findStoreIdsByManagerId(managerId);
+        Long reservationStoreId = reservation.getTheme().getStore().getId();
+
+        if (!storeIds.contains(reservationStoreId)) {
+            throw new ForbiddenException("해당 예약은 본인이 관리하는 매장의 예약이 아닙니다.");
         }
     }
 
