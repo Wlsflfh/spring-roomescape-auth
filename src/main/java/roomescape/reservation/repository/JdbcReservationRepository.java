@@ -6,6 +6,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import roomescape.member.domain.Member;
+import roomescape.member.domain.MemberRole;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
 import roomescape.store.domain.Store;
@@ -46,7 +47,8 @@ public class JdbcReservationRepository implements ReservationRepository {
                 rs.getLong("member_id"),
                 rs.getString("member_login_id"),
                 rs.getString("member_name"),
-                rs.getString("member_password")
+                rs.getString("member_password"),
+                MemberRole.valueOf(rs.getString("member_role"))
         );
 
         return new Reservation(
@@ -127,7 +129,8 @@ public class JdbcReservationRepository implements ReservationRepository {
                     m.id               as member_id,
                     m.login_id         as member_login_id,
                     m.name             as member_name,
-                    m.password         as member_password
+                    m.password         as member_password,
+                    m.role             as member_role
                 from reservation r
                 inner join reservation_time t on r.time_id   = t.id
                 inner join theme            h on r.theme_id  = h.id
@@ -160,7 +163,8 @@ public class JdbcReservationRepository implements ReservationRepository {
                     m.id               as member_id,
                     m.login_id         as member_login_id,
                     m.name             as member_name,
-                    m.password         as member_password
+                    m.password         as member_password,
+                    m.role             as member_role
                 from reservation r
                 inner join reservation_time t on r.time_id   = t.id
                 inner join theme            h on r.theme_id  = h.id

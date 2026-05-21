@@ -13,19 +13,26 @@ public class Member {
     private final String loginId;
     private final String name;
     private final String password;
+    private final MemberRole role;
 
-    public Member(Long id, String loginId, String name, String password) {
+    public Member(Long id, String loginId, String name, String password, MemberRole role) {
         validateText(loginId, "아이디", MAX_LOGIN_ID_LENGTH);
         validateText(name, "이름", MAX_NAME_LENGTH);
         validateText(password, "비밀번호", MAX_PASSWORD_LENGTH);
+        validateNotNull(role, "역할은 반드시 지정해야 합니다.");
         this.id = id;
         this.loginId = loginId;
         this.name = name;
         this.password = password;
+        this.role = role;
     }
 
     public static Member create(String loginId, String name, String password) {
-        return new Member(null, loginId, name, password);
+        return new Member(null, loginId, name, password, MemberRole.MEMBER);
+    }
+
+    public boolean isManager() {
+        return this.role == MemberRole.MANAGER;
     }
 
     public boolean isEquals(Long id) {
@@ -64,5 +71,9 @@ public class Member {
 
     public String getPassword() {
         return password;
+    }
+
+    public MemberRole getRole() {
+        return role;
     }
 }

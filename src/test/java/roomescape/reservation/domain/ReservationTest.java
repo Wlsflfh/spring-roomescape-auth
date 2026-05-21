@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.InvalidDomainStateException;
 import roomescape.member.domain.Member;
+import roomescape.member.domain.MemberRole;
 import roomescape.store.domain.Store;
 import roomescape.theme.domain.Theme;
 import roomescape.time.domain.ReservationTime;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.*;
 
 class ReservationTest {
 
-    private final Member member = new Member(1L, "brown", "브라운", "password");
+    private final Member member = new Member(1L, "brown", "브라운", "password", MemberRole.MEMBER);
     private final ReservationTime reservationTime = new ReservationTime(1L, LocalTime.of(15, 0));
     private final Store store = new Store(1L, "테스트 매장", "테스트 매장 설명");
     private final Theme theme = new Theme(1L, "테마", "설명", "url", store);

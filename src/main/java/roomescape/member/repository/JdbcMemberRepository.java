@@ -8,6 +8,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import roomescape.exception.DuplicateResourceException;
 import roomescape.member.domain.Member;
+import roomescape.member.domain.MemberRole;
 
 import java.sql.PreparedStatement;
 import java.util.List;
@@ -21,7 +22,8 @@ public class JdbcMemberRepository implements MemberRepository {
                     rs.getLong("id"),
                     rs.getString("login_id"),
                     rs.getString("name"),
-                    rs.getString("password")
+                    rs.getString("password"),
+                    MemberRole.valueOf(rs.getString("role"))
             );
 
     private final JdbcTemplate jdbcTemplate;
@@ -32,7 +34,7 @@ public class JdbcMemberRepository implements MemberRepository {
 
     @Override
     public Member save(Member member) {
-        String sql = "insert into member (login_id, name, password) values (?, ?, ?)";
+        String sql = "insert into member (login_id, name, password, role) values (?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         try {
             jdbcTemplate.update(connection -> {
@@ -40,6 +42,7 @@ public class JdbcMemberRepository implements MemberRepository {
                 ps.setString(1, member.getLoginId());
                 ps.setString(2, member.getName());
                 ps.setString(3, member.getPassword());
+                ps.setString(4, member.getRole().name());
                 return ps;
             }, keyHolder);
         } catch (DuplicateKeyException e) {
@@ -53,21 +56,21 @@ public class JdbcMemberRepository implements MemberRepository {
 
     @Override
     public Optional<Member> findById(Long id) {
-        String sql = "select id, login_id, name, password from member where id = ?";
+        String sql = "select id, login_id, name, password, role from member where id = ?";
         List<Member> results = jdbcTemplate.query(sql, memberMapper, id);
         return results.stream().findFirst();
     }
 
     @Override
     public Optional<Member> findByLoginId(String loginId) {
-        String sql = "select id, login_id, name, password from member where login_id = ?";
+        String sql = "select id, login_id, name, password, role from member where login_id = ?";
         List<Member> results = jdbcTemplate.query(sql, memberMapper, loginId);
         return results.stream().findFirst();
     }
 
     @Override
     public List<Member> findAllByName(String name) {
-        String sql = "select id, login_id, name, password from member where name like ?";
+        String sql = "select id, login_id, name, password, role from member where name like ?";
         return jdbcTemplate.query(sql, memberMapper, "%" + name + "%");
     }
 }

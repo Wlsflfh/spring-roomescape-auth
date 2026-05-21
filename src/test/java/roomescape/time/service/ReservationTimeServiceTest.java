@@ -181,10 +181,23 @@ class ReservationTimeServiceTest {
         return keyHolder.getKey().longValue();
     }
 
+    private Long insertStore(String name, String description) {
+        String sql = "INSERT INTO store (name, description) VALUES (?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, name);
+            ps.setString(2, description);
+            return ps;
+        }, keyHolder);
+        return keyHolder.getKey().longValue();
+    }
+
     private Long insertTheme(String name, String description, String thumbnailUrl) {
+        Long storeId = insertStore("테마용 매장-" + name, "자동 생성 매장");
         jdbcTemplate.update(
-                "INSERT INTO theme (name, description, thumbnail_url) VALUES (?, ?, ?)",
-                name, description, thumbnailUrl
+                "INSERT INTO theme (name, description, thumbnail_url, store_id) VALUES (?, ?, ?, ?)",
+                name, description, thumbnailUrl, storeId
         );
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM theme WHERE name = ?",

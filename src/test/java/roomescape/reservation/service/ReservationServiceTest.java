@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.DuplicateResourceException;
 import roomescape.member.domain.Member;
+import roomescape.member.domain.MemberRole;
 import roomescape.reservation.controller.dto.ReservationRequest;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
@@ -50,12 +51,13 @@ class ReservationServiceTest {
         today = LocalDateTime.now().withNano(0);
         futureDate = today.plusDays(1);
         pastDate = today.minusDays(1);
-        themeId = insertTheme("우테코", "우테코 전용 테마", "https://example.com/thumb.jpg");
+        Long storeId = insertStore("테스트 매장", "테스트용 매장");
+        themeId = insertTheme("우테코", "우테코 전용 테마", "https://example.com/thumb.jpg", storeId);
 
         Long memberId = insertMember("brown", "브라운", "password1");
         Long otherMemberId = insertMember("james", "제임스", "password2");
-        member = new Member(memberId, "brown", "브라운", "password1");
-        otherMember = new Member(otherMemberId, "james", "제임스", "password2");
+        member = new Member(memberId, "brown", "브라운", "password1", MemberRole.MEMBER);
+        otherMember = new Member(otherMemberId, "james", "제임스", "password2", MemberRole.MEMBER);
     }
 
     @Nested
@@ -173,7 +175,8 @@ class ReservationServiceTest {
             Long timeId = insertReservationTime(futureDate.toLocalTime());
             reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
 
-            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg");
+            Long storeId2 = insertStore("테스트 매장2", "테스트용 매장2");
+            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg", storeId2);
             reservationService.save(new ReservationRequest(reservationDate.plusDays(1), timeId, themeId2), member);
             reservationService.save(new ReservationRequest(reservationDate.plusDays(2), timeId, themeId), otherMember);
 
@@ -191,7 +194,8 @@ class ReservationServiceTest {
             reservationService.save(new ReservationRequest(reservationDate, timeId, themeId), member);
             reservationService.save(new ReservationRequest(reservationDate.plusDays(1), timeId, themeId), member);
 
-            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg");
+            Long storeId2 = insertStore("테스트 매장2-b", "테스트용 매장2-b");
+            Long themeId2 = insertTheme("테마2", "설명2", "https://example.com/2.jpg", storeId2);
             reservationService.save(new ReservationRequest(reservationDate.plusDays(2), timeId, themeId2), otherMember);
 
             List<Reservation> results = reservationService.findByFilter(member.getId(), null, null, null);
@@ -315,7 +319,7 @@ class ReservationServiceTest {
     }
 
     private Long insertMember(String loginId, String name, String password) {
-        String sql = "INSERT INTO member (login_id, name, password) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO member (login_id, name, password, role) VALUES (?, ?, ?, 'MEMBER')";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
@@ -323,6 +327,20 @@ class ReservationServiceTest {
             ps.setString(1, loginId);
             ps.setString(2, name);
             ps.setString(3, password);
+            return ps;
+        }, keyHolder);
+
+        return keyHolder.getKey().longValue();
+    }
+
+    private Long insertStore(String name, String description) {
+        String sql = "INSERT INTO store (name, description) VALUES (?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, name);
+            ps.setString(2, description);
             return ps;
         }, keyHolder);
 
@@ -338,10 +356,10 @@ class ReservationServiceTest {
         );
     }
 
-    private Long insertTheme(String name, String description, String thumbnailUrl) {
+    private Long insertTheme(String name, String description, String thumbnailUrl, Long storeId) {
         jdbcTemplate.update(
-                "INSERT INTO theme (name, description, thumbnail_url) VALUES (?, ?, ?)",
-                name, description, thumbnailUrl
+                "INSERT INTO theme (name, description, thumbnail_url, store_id) VALUES (?, ?, ?, ?)",
+                name, description, thumbnailUrl, storeId
         );
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM theme WHERE name = ?",

@@ -1,18 +1,25 @@
 DELETE FROM reservation;
+DELETE FROM manager_store;
 DELETE FROM reservation_time;
 DELETE FROM theme;
 DELETE FROM store;
 DELETE FROM member;
 
 ALTER TABLE reservation ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE manager_store ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE reservation_time ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE theme ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE store ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE member ALTER COLUMN id RESTART WITH 1;
 
 -- 1. 회원 데이터 생성 (외래키 참조를 위해 최상단 위치)
-INSERT INTO member (login_id, password, name) VALUES ('jinriro', '1234', '진리로');
-INSERT INTO member (login_id, password, name) VALUES ('rice', '1234', '김가현');
+-- 일반 회원 (member_id: 1, 2)
+INSERT INTO member (login_id, password, name, role) VALUES ('jinriro', '1234', '진리로', 'MEMBER');
+INSERT INTO member (login_id, password, name, role) VALUES ('rice', '1234', '김가현', 'MEMBER');
+-- 매장 매니저 (member_id: 3=강남, 4=홍대, 5=신촌)
+INSERT INTO member (login_id, password, name, role) VALUES ('manager_gangnam', '1234', '강남점 매니저', 'MANAGER');
+INSERT INTO member (login_id, password, name, role) VALUES ('manager_hongdae', '1234', '홍대점 매니저', 'MANAGER');
+INSERT INTO member (login_id, password, name, role) VALUES ('manager_sinchon', '1234', '신촌점 매니저', 'MANAGER');
 
 -- 2. 예약 시간 데이터 생성
 INSERT INTO reservation_time (start_at) VALUES
@@ -116,3 +123,11 @@ INSERT INTO reservation (member_id, reservation_date, time_id, theme_id, status)
 (2, '2026-06-09', 1, 1,  'RESERVED'),
 (1, '2026-06-08', 2, 2,  'RESERVED'),
 (1, '2026-06-07', 3, 3,  'RESERVED');
+
+-- 6. 매니저-매장 매핑 데이터 생성
+-- 강남점 매니저(3) → 강남점(1)
+-- 홍대점 매니저(4) → 홍대점(2)
+-- 신촌점 매니저(5) → 신촌점(3)
+INSERT INTO manager_store (manager_id, store_id) VALUES (3, 1);
+INSERT INTO manager_store (manager_id, store_id) VALUES (4, 2);
+INSERT INTO manager_store (manager_id, store_id) VALUES (5, 3);

@@ -26,7 +26,19 @@ CREATE TABLE member (
     login_id    VARCHAR(255)    NOT NULL UNIQUE,
     name        VARCHAR(50)     NOT NULL,
     password    VARCHAR(255)    NOT NULL,
-    PRIMARY KEY (id)
+    role        VARCHAR(20)     NOT NULL DEFAULT 'MEMBER',
+    PRIMARY KEY (id),
+    CONSTRAINT chk_member_role CHECK (role IN ('MEMBER', 'MANAGER'))
+);
+
+CREATE TABLE manager_store (
+    id          BIGINT  NOT NULL AUTO_INCREMENT,
+    manager_id  BIGINT  NOT NULL,
+    store_id    BIGINT  NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (manager_id) REFERENCES member (id),
+    FOREIGN KEY (store_id)   REFERENCES store (id),
+    CONSTRAINT uq_manager_store UNIQUE (manager_id, store_id)
 );
 
 CREATE TABLE reservation (
