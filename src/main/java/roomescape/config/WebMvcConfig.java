@@ -7,6 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import roomescape.auth.interceptor.AdminAuthInterceptor;
 import roomescape.auth.interceptor.AuthInterceptor;
 import roomescape.auth.resolver.LoginMemberArgumentResolver;
+import roomescape.auth.resolver.ManagerArgumentResolver;
 import roomescape.auth.service.AuthTokenService;
 import roomescape.member.service.MemberService;
 
@@ -40,5 +41,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new LoginMemberArgumentResolver(memberService, authTokenService));
+        resolvers.add(new ManagerArgumentResolver(memberService, authTokenService));
     }
 }
