@@ -18,6 +18,7 @@ if (!Auth.isLoggedIn()) {
 Auth.initNav('navActions', {
   hideMyReservations: true,
   extraLeft: '<a class="nav-btn" href="/">← 홈</a>',
+  showStoreBadge: true,
 });
 
 async function api(path, options = {}) {
@@ -108,7 +109,14 @@ async function search() {
   const qs = params.toString();
 
   try {
-    const data = await api(`/reservations/my${qs ? "?" + qs : ""}`);
+    let data = await api(`/reservations/my${qs ? "?" + qs : ""}`);
+
+    // 선택된 지점에 해당하는 예약만 표시
+    const selectedStore = Auth.getSelectedStore();
+    if (selectedStore) {
+      data = data.filter(r => r.theme?.storeId === selectedStore.id);
+    }
+
     renderResults(data);
     setMessage("조회 완료.");
   } catch (e) {
@@ -240,11 +248,16 @@ $("#editModal").addEventListener("click", (e) => {
 /* ── Init ── */
 (async function init() {
   try {
-    const themes = await api("/themes");
-    allThemes = themes;
+    const allFetched = await api("/themes");
+    const selectedStore = Auth.getSelectedStore();
+
+    // 선택 지점의 테마만 드롭다운에 표시
+    allThemes = selectedStore
+      ? allFetched.filter(t => t.storeId === selectedStore.id)
+      : allFetched;
 
     const sel = $("#searchTheme");
-    themes.forEach((t) => {
+    allThemes.forEach((t) => {
       const opt = document.createElement("option");
       opt.value = t.id;
       opt.textContent = t.name;
