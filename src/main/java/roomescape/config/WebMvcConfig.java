@@ -7,6 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import roomescape.auth.interceptor.AdminAuthInterceptor;
 import roomescape.auth.interceptor.AuthInterceptor;
 import roomescape.auth.resolver.LoginMemberArgumentResolver;
+import roomescape.auth.service.AuthTokenService;
 import roomescape.member.service.MemberService;
 
 import java.util.List;
@@ -15,16 +16,18 @@ import java.util.List;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final MemberService memberService;
+    private final AuthTokenService authTokenService;
 
-    public WebMvcConfig(MemberService memberService) {
+    public WebMvcConfig(MemberService memberService, AuthTokenService authTokenService) {
         this.memberService = memberService;
+        this.authTokenService = authTokenService;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthInterceptor());
+        registry.addInterceptor(new AuthInterceptor(authTokenService));
 
-        registry.addInterceptor(new AdminAuthInterceptor())
+        registry.addInterceptor(new AdminAuthInterceptor(authTokenService))
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns(
                         "/admin/login",
@@ -36,6 +39,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new LoginMemberArgumentResolver(memberService));
+        resolvers.add(new LoginMemberArgumentResolver(memberService, authTokenService));
     }
 }

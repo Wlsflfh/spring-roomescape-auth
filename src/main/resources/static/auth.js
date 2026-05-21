@@ -3,26 +3,23 @@
  *
  * localStorage 키:
  *   'loginMember' → { id, loginId, name }
- *   'authToken'   → X-Auth-Token 세션 ID
+ *   'accessToken' → 회원 JWT
+ *   'adminToken'  → 관리자 JWT
  *
  * 로그인 → setMember()   로그아웃 → logout()
  */
 
-/* ── 전역 fetch 래핑: 모든 요청에 X-Auth-Token 헤더 자동 추가 ── */
+/* ── 전역 fetch 래핑: 모든 요청에 Authorization 헤더 자동 추가 ── */
 (function wrapFetch() {
   const _fetch = window.fetch;
   window.fetch = function (url, options = {}) {
-    const token = localStorage.getItem('authToken');
+    const path = typeof url === 'string' ? url : url.url;
+    const tokenKey = path.startsWith('/admin/') ? 'adminToken' : 'accessToken';
+    const token = localStorage.getItem(tokenKey);
     if (token) {
-      options.headers = { 'X-Auth-Token': token, ...options.headers };
+      options.headers = { Authorization: `Bearer ${token}`, ...options.headers };
     }
-    return _fetch(url, options).then((response) => {
-      const newToken = response.headers.get('X-Auth-Token');
-      if (newToken) {
-        localStorage.setItem('authToken', newToken);
-      }
-      return response;
-    });
+    return _fetch(url, options);
   };
 })();
 
@@ -34,13 +31,18 @@ const Auth = (() => {
     catch (_) { return null; }
   }
 
-  function setMember(m) {
-    localStorage.setItem(KEY, JSON.stringify(m));
+  function setMember(loginResponse) {
+    const { accessToken, tokenType, ...member } = loginResponse;
+    localStorage.setItem(KEY, JSON.stringify(member));
+    if (accessToken) {
+      localStorage.setItem('accessToken', accessToken);
+    }
   }
 
   function clear() {
     localStorage.removeItem(KEY);
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('adminToken');
   }
 
   function isLoggedIn() {
@@ -155,6 +157,10 @@ const Auth = (() => {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.accessToken) {
+          localStorage.setItem('adminToken', body.accessToken);
+        }
         closeAdminModal();
         location.href = '/admin/index.html';
       } else {

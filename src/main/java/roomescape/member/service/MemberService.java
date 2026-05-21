@@ -2,6 +2,7 @@ package roomescape.member.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import roomescape.exception.DuplicateResourceException;
 import roomescape.exception.ResourceNotFoundException;
 import roomescape.member.controller.dto.MemberRequest;
 import roomescape.member.domain.Member;
@@ -21,6 +22,10 @@ public class MemberService {
 
     @Transactional
     public Member save(MemberRequest request) {
+        if (memberRepository.findByLoginId(request.loginId()).isPresent()) {
+            throw new DuplicateResourceException("이미 사용 중인 로그인 ID입니다.");
+        }
+
         Member member = Member.create(request.loginId(), request.name(), request.password());
         return memberRepository.save(member);
     }

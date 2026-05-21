@@ -2,14 +2,18 @@ package roomescape.auth.interceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import roomescape.auth.annotation.LoginRequired;
-import roomescape.auth.controller.AuthController;
-import roomescape.exception.UnauthorizedException;
+import roomescape.auth.service.AuthTokenService;
 
 public class AuthInterceptor implements HandlerInterceptor {
+
+    private final AuthTokenService authTokenService;
+
+    public AuthInterceptor(AuthTokenService authTokenService) {
+        this.authTokenService = authTokenService;
+    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -21,11 +25,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute(AuthController.SESSION_KEY) == null) {
-            throw new UnauthorizedException("로그인이 필요합니다.");
-        }
-
+        authTokenService.extractMemberId(request);
         return true;
     }
 }
