@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import roomescape.member.domain.Member;
 import roomescape.reservation.domain.Reservation;
 import roomescape.reservation.domain.ReservationStatus;
+import roomescape.store.domain.Store;
 import roomescape.theme.domain.Theme;
 import roomescape.time.domain.ReservationTime;
 
@@ -27,11 +28,18 @@ public class JdbcReservationRepository implements ReservationRepository {
                 rs.getTime("time_start_at").toLocalTime()
         );
 
+        Store store = new Store(
+                rs.getLong("store_id"),
+                rs.getString("store_name"),
+                rs.getString("store_description")
+        );
+
         Theme theme = new Theme(
                 rs.getLong("theme_id"),
                 rs.getString("theme_name"),
                 rs.getString("theme_description"),
-                rs.getString("theme_thumbnail_url")
+                rs.getString("theme_thumbnail_url"),
+                store
         );
 
         Member member = new Member(
@@ -113,6 +121,9 @@ public class JdbcReservationRepository implements ReservationRepository {
                     h.name             as theme_name,
                     h.description      as theme_description,
                     h.thumbnail_url    as theme_thumbnail_url,
+                    s.id               as store_id,
+                    s.name             as store_name,
+                    s.description      as store_description,
                     m.id               as member_id,
                     m.login_id         as member_login_id,
                     m.name             as member_name,
@@ -120,6 +131,7 @@ public class JdbcReservationRepository implements ReservationRepository {
                 from reservation r
                 inner join reservation_time t on r.time_id   = t.id
                 inner join theme            h on r.theme_id  = h.id
+                inner join store            s on h.store_id  = s.id
                 inner join member           m on r.member_id = m.id
                 where r.id = ?
                 """;
@@ -142,6 +154,9 @@ public class JdbcReservationRepository implements ReservationRepository {
                     h.name             as theme_name,
                     h.description      as theme_description,
                     h.thumbnail_url    as theme_thumbnail_url,
+                    s.id               as store_id,
+                    s.name             as store_name,
+                    s.description      as store_description,
                     m.id               as member_id,
                     m.login_id         as member_login_id,
                     m.name             as member_name,
@@ -149,6 +164,7 @@ public class JdbcReservationRepository implements ReservationRepository {
                 from reservation r
                 inner join reservation_time t on r.time_id   = t.id
                 inner join theme            h on r.theme_id  = h.id
+                inner join store            s on h.store_id  = s.id
                 inner join member           m on r.member_id = m.id
                 where 1=1
                 """

@@ -4,12 +4,21 @@ CREATE TABLE reservation_time (
     PRIMARY KEY (id)
 );
 
+CREATE TABLE store (
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(255) NOT NULL UNIQUE,
+    description VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id)
+);
+
 CREATE TABLE theme (
     id                 BIGINT           NOT NULL AUTO_INCREMENT,
     name               VARCHAR(255)     NOT NULL UNIQUE,
     description        VARCHAR(255)     NOT NULL,
     thumbnail_url      VARCHAR(1024)    NOT NULL,
-    PRIMARY KEY (id)
+    store_id           BIGINT           NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (store_id) REFERENCES store (id)
 );
 
 CREATE TABLE member (

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.DuplicateResourceException;
 import roomescape.reservation.domain.ReservationStatus;
+import roomescape.store.domain.Store;
 import roomescape.theme.domain.Theme;
 
 import java.sql.Date;
@@ -21,13 +22,20 @@ import java.util.Optional;
 @Repository
 public class JdbcThemeRepository implements ThemeRepository {
 
-    private final RowMapper<Theme> ThemeMapper = (resultSet, rowNum) ->
-            new Theme(
-                    resultSet.getLong("id"),
-                    resultSet.getString("name"),
-                    resultSet.getString("description"),
-                    resultSet.getString("thumbnail_url")
-            );
+    private final RowMapper<Theme> ThemeMapper = (resultSet, rowNum) -> {
+        Store store = new Store(
+                resultSet.getLong("store_id"),
+                resultSet.getString("store_name"),
+                resultSet.getString("store_description")
+        );
+        return new Theme(
+                resultSet.getLong("theme_id"),
+                resultSet.getString("theme_name"),
+                resultSet.getString("theme_description"),
+                resultSet.getString("thumbnail_url"),
+                store
+        );
+    };
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -37,7 +45,7 @@ public class JdbcThemeRepository implements ThemeRepository {
 
     @Override
     public Theme save(Theme theme) {
-        String sql = "insert into theme (name, description, thumbnail_url) values (?, ?, ?)";
+        String sql = "insert into theme (name, description, thumbnail_url, store_id) values (?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         try {
             jdbcTemplate.update(connection -> {
@@ -45,6 +53,7 @@ public class JdbcThemeRepository implements ThemeRepository {
                 ps.setString(1, theme.getName());
                 ps.setString(2, theme.getDescription());
                 ps.setString(3, theme.getThumbnailUrl());
+                ps.setLong(4, theme.getStore().getId());
                 return ps;
             }, keyHolder);
         } catch (DuplicateKeyException e) {
@@ -65,16 +74,29 @@ public class JdbcThemeRepository implements ThemeRepository {
         }
     }
 
+    private static final String SELECT_WITH_STORE = """
+            select
+                t.id          as theme_id,
+                t.name        as theme_name,
+                t.description as theme_description,
+                t.thumbnail_url,
+                s.id          as store_id,
+                s.name        as store_name,
+                s.description as store_description
+            from theme t
+            inner join store s on t.store_id = s.id
+            """;
+
     @Override
     public Optional<Theme> findById(Long id) {
-        String sql = "select * from theme where id = ?";
+        String sql = SELECT_WITH_STORE + "where t.id = ?";
         List<Theme> results = jdbcTemplate.query(sql, ThemeMapper, id);
         return results.stream().findFirst();
     }
 
     @Override
     public List<Theme> findAll() {
-        return jdbcTemplate.query("select id, name, description, thumbnail_url from theme order by id", ThemeMapper);
+        return jdbcTemplate.query(SELECT_WITH_STORE + "order by t.id", ThemeMapper);
     }
 
     @Override
@@ -87,16 +109,20 @@ public class JdbcThemeRepository implements ThemeRepository {
     public List<Theme> findPopularThemes(LocalDate startDate, LocalDate endDate, ReservationStatus status, int limit) {
         String sql = """
             select
-                t.id,
-                t.name,
-                t.description,
-                t.thumbnail_url
+                t.id          as theme_id,
+                t.name        as theme_name,
+                t.description as theme_description,
+                t.thumbnail_url,
+                s.id          as store_id,
+                s.name        as store_name,
+                s.description as store_description
             from reservation r
             inner join theme t on r.theme_id = t.id
+            inner join store s on t.store_id = s.id
             where r.reservation_date >= ?
             and r.reservation_date < ?
             and r.status = ?
-            group by t.id
+            group by t.id, t.name, t.description, t.thumbnail_url, s.id, s.name, s.description
             order by count(r.id) desc, t.id asc
             limit ?
             """;
@@ -113,12 +139,13 @@ public class JdbcThemeRepository implements ThemeRepository {
 
     @Override
     public void update(Theme theme) {
-        String sql = "update theme set name = ?, description = ?, thumbnail_url = ? where id = ?";
+        String sql = "update theme set name = ?, description = ?, thumbnail_url = ?, store_id = ? where id = ?";
         jdbcTemplate.update(
                 sql,
                 theme.getName(),
                 theme.getDescription(),
                 theme.getThumbnailUrl(),
+                theme.getStore().getId(),
                 theme.getId()
         );
     }

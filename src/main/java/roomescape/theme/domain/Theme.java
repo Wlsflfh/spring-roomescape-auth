@@ -2,6 +2,7 @@ package roomescape.theme.domain;
 
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.InvalidDomainStateException;
+import roomescape.store.domain.Store;
 
 public class Theme {
 
@@ -13,23 +14,26 @@ public class Theme {
     private final String name;
     private final String description;
     private final String thumbnailUrl;
+    private final Store store;
 
-    public Theme(Long id, String name, String description, String thumbnailUrl) {
+    public Theme(Long id, String name, String description, String thumbnailUrl, Store store) {
         validateText(name, "이름", MAX_NAME_LENGTH);
         validateText(description, "설명", MAX_DESCRIPTION_LENGTH);
         validateText(thumbnailUrl, "썸네일 URL", MAX_THUMBNAIL_URL_LENGTH);
+        validateNotNull(store, "테마 매장은 반드시 지정해야 합니다.");
         this.id = id;
         this.name = name;
         this.description = description;
         this.thumbnailUrl = thumbnailUrl;
+        this.store = store;
     }
 
-    public static Theme create(String name, String description, String thumbnailUrl) {
-        return new Theme(null, name, description, thumbnailUrl);
+    public static Theme create(String name, String description, String thumbnailUrl, Store store) {
+        return new Theme(null, name, description, thumbnailUrl, store);
     }
 
-    public Theme update(String name, String description, String thumbnailUrl) {
-        return new Theme(this.id, name, description, thumbnailUrl);
+    public Theme update(String name, String description, String thumbnailUrl, Store store) {
+        return new Theme(this.id, name, description, thumbnailUrl, store);
     }
 
     private void validateText(String value, String fieldName, int maxLength) {
@@ -66,5 +70,9 @@ public class Theme {
 
     public String getThumbnailUrl() {
         return thumbnailUrl;
+    }
+
+    public Store getStore() {
+        return store;
     }
 }

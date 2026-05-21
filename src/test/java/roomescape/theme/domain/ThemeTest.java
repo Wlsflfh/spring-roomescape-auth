@@ -8,16 +8,19 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import roomescape.exception.BusinessRuleViolationException;
 import roomescape.exception.InvalidDomainStateException;
+import roomescape.store.domain.Store;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ThemeTest {
 
+    private final Store store = new Store(1L, "테스트 매장", "테스트 매장 설명");
+
     @Test
     @DisplayName("정상적인 데이터로 테마 객체를 생성한다.")
     void createSuccess() {
-        assertThatCode(() -> new Theme(1L, "우테코 방탈출", "재미있는 방탈출입니다.", "https://example.com/image.png"))
+        assertThatCode(() -> new Theme(1L, "우테코 방탈출", "재미있는 방탈출입니다.", "https://example.com/image.png", store))
                 .doesNotThrowAnyException();
     }
 
@@ -30,7 +33,7 @@ class ThemeTest {
         @ValueSource(strings = {" ", "  "})
         @DisplayName("이름이 비어있거나 공백이면 예외가 발생한다.")
         void failWhenNameIsBlank(String name) {
-            assertThatThrownBy(() -> new Theme(null, name, "설명", "url"))
+            assertThatThrownBy(() -> new Theme(null, name, "설명", "url", store))
                     .isInstanceOf(InvalidDomainStateException.class);
         }
 
@@ -38,7 +41,7 @@ class ThemeTest {
         @DisplayName("이름이 길이를 초과하면 예외가 발생한다.")
         void failWhenNameIsTooLong() {
             String longName = "a".repeat(256);
-            assertThatThrownBy(() -> new Theme(null, longName, "설명", "url"))
+            assertThatThrownBy(() -> new Theme(null, longName, "설명", "url", store))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
     }
@@ -51,7 +54,7 @@ class ThemeTest {
         @NullAndEmptySource
         @DisplayName("설명이 비어있으면 예외가 발생한다.")
         void failWhenDescriptionIsBlank(String description) {
-            assertThatThrownBy(() -> new Theme(null, "이름", description, "url"))
+            assertThatThrownBy(() -> new Theme(null, "이름", description, "url", store))
                     .isInstanceOf(InvalidDomainStateException.class);
         }
 
@@ -59,7 +62,7 @@ class ThemeTest {
         @DisplayName("설명이 길이를 초과하면 예외가 발생한다.")
         void failWhenDescriptionIsTooLong() {
             String longDescription = "b".repeat(256);
-            assertThatThrownBy(() -> new Theme(null, "이름", longDescription, "url"))
+            assertThatThrownBy(() -> new Theme(null, "이름", longDescription, "url", store))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
     }
@@ -72,7 +75,7 @@ class ThemeTest {
         @NullAndEmptySource
         @DisplayName("썸네일 URL이 비어있으면 예외가 발생한다.")
         void failWhenUrlIsBlank(String url) {
-            assertThatThrownBy(() -> new Theme(null, "이름", "설명", url))
+            assertThatThrownBy(() -> new Theme(null, "이름", "설명", url, store))
                     .isInstanceOf(InvalidDomainStateException.class);
         }
 
@@ -80,7 +83,7 @@ class ThemeTest {
         @DisplayName("썸네일 URL이 길이를 초과하면 예외가 발생한다.")
         void failWhenUrlIsTooLong() {
             String longUrl = "c".repeat(1025);
-            assertThatThrownBy(() -> new Theme(null, "이름", "설명", longUrl))
+            assertThatThrownBy(() -> new Theme(null, "이름", "설명", longUrl, store))
                     .isInstanceOf(BusinessRuleViolationException.class);
         }
     }

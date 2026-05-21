@@ -7,6 +7,8 @@ import roomescape.exception.DuplicateResourceException;
 import roomescape.exception.ResourceNotFoundException;
 import roomescape.reservation.domain.ReservationStatus;
 import roomescape.reservation.repository.ReservationRepository;
+import roomescape.store.domain.Store;
+import roomescape.store.service.StoreService;
 import roomescape.theme.controller.dto.ThemeRequest;
 import roomescape.theme.domain.Theme;
 import roomescape.theme.repository.ThemeRepository;
@@ -23,20 +25,24 @@ public class ThemeService {
 
     private final ThemeRepository themeRepository;
     private final ReservationRepository reservationRepository;
+    private final StoreService storeService;
 
     public ThemeService(
             ThemeRepository themeRepository,
-            ReservationRepository reservationRepository
+            ReservationRepository reservationRepository,
+            StoreService storeService
     ) {
         this.themeRepository = themeRepository;
         this.reservationRepository = reservationRepository;
+        this.storeService = storeService;
     }
 
     @Transactional
     public Theme save(ThemeRequest request) {
         validateDuplicateName(request);
 
-        Theme theme = Theme.create(request.name(), request.description(), request.thumbnailUrl());
+        Store store = storeService.getById(request.storeId());
+        Theme theme = Theme.create(request.name(), request.description(), request.thumbnailUrl(), store);
         return themeRepository.save(theme);
     }
 
@@ -68,7 +74,8 @@ public class ThemeService {
     @Transactional
     public Theme update(Long id, ThemeRequest request) {
         validateDuplicateName(request);
-        Theme updatedTheme = getById(id).update(request.name(), request.description(), request.thumbnailUrl());
+        Store store = storeService.getById(request.storeId());
+        Theme updatedTheme = getById(id).update(request.name(), request.description(), request.thumbnailUrl(), store);
         themeRepository.update(updatedTheme);
         return updatedTheme;
     }
