@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>Admin · Themes</title>
+  <title>매니저 · 테마 관리</title>
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -14,37 +14,32 @@
 <nav class="navbar">
   <a class="nav-logo" href="/">// ROOMESCAPE</a>
   <div class="nav-actions">
-    <a class="nav-btn" href="/admin/index.html">← 관리자 홈</a>
+    <a class="nav-btn" href="/manager/index.html">← 매니저 홈</a>
   </div>
 </nav>
 
 <main class="page" style="padding-top:0;">
   <header class="hero">
-    <p class="eyebrow" id="heroEyebrow">// Roomescape · Admin · Themes</p>
+    <p class="eyebrow" id="heroEyebrow">// Roomescape · Manager · Themes</p>
     <h1 id="heroTitle">테마 관리</h1>
-    <p>방탈출 테마를 추가/수정/삭제. 예약에 사용 중인 테마는 삭제할 수 없다.</p>
+    <p>내 매장의 테마를 추가·수정·삭제합니다. 예약에 사용 중인 테마는 삭제할 수 없습니다.</p>
   </header>
 
   <section class="panel">
     <h2 id="formTitle">테마 추가</h2>
-    <p class="panel-sub" id="formSub">새로운 테마를 등록한다.</p>
+    <p class="panel-sub" id="formSub">새로운 테마를 등록합니다.</p>
     <form class="grid-form" id="themeForm">
       <input type="hidden" name="id" id="themeId" />
+      <input type="hidden" name="storeId" id="themeStoreId" />
       <div class="field">
         <label>이름</label>
         <input maxlength="255" name="name" placeholder="공포의 수랏간" required />
       </div>
       <div class="field">
-        <label>지점</label>
-        <select name="storeId" id="themeStoreId" required>
-          <option value="">지점 선택</option>
-        </select>
-      </div>
-      <div class="field">
         <label>썸네일 URL</label>
         <input maxlength="1024" name="thumbnailUrl" placeholder="https://…" required type="url" />
       </div>
-      <div class="field">
+      <div class="field" style="grid-column: span 2;">
         <label>설명</label>
         <input maxlength="255" name="description" placeholder="아주 무섭습니다" required />
       </div>
@@ -87,7 +82,8 @@
 
   <p class="message" id="message"></p>
 </main>
+
 <script src="/auth.js"></script>
-<script src="/admin/themes.js"></script>
+<script src="/manager/themes.js"></script>
 </body>
 </html>

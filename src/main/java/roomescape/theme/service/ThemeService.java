@@ -59,6 +59,10 @@ public class ThemeService {
         return themeRepository.findAll();
     }
 
+    public List<Theme> findByStoreIds(List<Long> storeIds) {
+        return themeRepository.findByStoreIds(storeIds);
+    }
+
     public List<Theme> findPopularThemes() {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(DEFAULT_POPULAR_PERIOD);

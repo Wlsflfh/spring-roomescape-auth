@@ -421,8 +421,6 @@ class ReservationServiceTest {
         }
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────────
-
     private Long insertReservation(Long memberId, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {
         String sql = "INSERT INTO reservation (member_id, reservation_date, time_id, theme_id, status) VALUES (?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();

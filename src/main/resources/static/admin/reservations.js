@@ -11,6 +11,19 @@
  */
 const $ = (sel) => document.querySelector(sel);
 
+/* URL params (지점 필터) */
+const _urlParams  = new URLSearchParams(location.search);
+const _storeId    = _urlParams.get('storeId') ? Number(_urlParams.get('storeId')) : null;
+const _storeName  = _urlParams.get('storeName') || null;
+
+/* 페이지 타이틀 업데이트 */
+if (_storeName) {
+  const eyebrow = document.getElementById('heroEyebrow');
+  const title   = document.getElementById('heroTitle');
+  if (eyebrow) eyebrow.textContent = `// Roomescape · Admin · ${_storeName} · 예약`;
+  if (title)   title.textContent   = `${_storeName} 예약 관리`;
+}
+
 const state = { themes: [], times: [] };
 let cachedList = [];
 
@@ -165,9 +178,13 @@ async function refreshList() {
 
 function applyNameFilter() {
   const keyword = ($("#filterMemberName").value ?? "").trim().toLowerCase();
-  const filtered = keyword
+  let filtered = keyword
     ? cachedList.filter((r) => (r.memberName ?? "").toLowerCase().includes(keyword))
     : cachedList;
+  // 지점 필터 적용
+  if (_storeId) {
+    filtered = filtered.filter(r => r.theme?.storeId === _storeId);
+  }
   renderReservations(filtered);
 }
 

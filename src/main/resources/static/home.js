@@ -2,8 +2,9 @@
  * 홈 페이지 (static/index.html)
  *
  * API
- *  GET /themes          : 전체 테마 목록
- *  GET /themes/popular  : 인기 테마 (최근 7일)
+ *  GET /stores         : 지점 목록
+ *  GET /themes         : 전체 테마 목록 (storeId, storeName 포함)
+ *  GET /themes/popular : 인기 테마 (최근 7일)
  */
 const $ = (sel) => document.querySelector(sel);
 
@@ -30,13 +31,69 @@ function setMessage(msg, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+/* ── 지점 선택 오버레이 ── */
+async function initStoreSelector() {
+  const overlay = $("#storeOverlay");
+  const selected = Auth.getSelectedStore();
+
+  if (selected) {
+    // 이미 선택된 지점 있으면 바로 숨김
+    overlay.classList.add("hidden");
+    updateHeroForStore(selected);
+    return;
+  }
+
+  // 지점 목록 로드
+  try {
+    const stores = await api("/stores");
+    renderStoreButtons(stores);
+  } catch (e) {
+    $("#storeBtnGrid").innerHTML = `<p style="color:var(--danger); grid-column:1/-1;">지점 정보를 불러올 수 없습니다: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+function renderStoreButtons(stores) {
+  const grid = $("#storeBtnGrid");
+  const icons = ["🏙️", "🎭", "🌆", "🏬", "🎪"];
+
+  if (!stores.length) {
+    grid.innerHTML = '<p style="color:var(--text-2); grid-column:1/-1;">등록된 지점이 없습니다.</p>';
+    return;
+  }
+
+  grid.innerHTML = stores.map((store, i) => `
+    <button class="store-btn" data-store-id="${store.id}" data-store-name="${escapeHtml(store.name)}" type="button">
+      <span class="store-icon">${icons[i % icons.length]}</span>
+      <span>${escapeHtml(store.name)}</span>
+      <span class="store-sub">${escapeHtml(store.description)}</span>
+    </button>
+  `).join("");
+
+  grid.querySelectorAll(".store-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const store = { id: Number(btn.dataset.storeId), name: btn.dataset.storeName };
+      Auth.setSelectedStore(store);
+      $("#storeOverlay").classList.add("hidden");
+      updateHeroForStore(store);
+      loadContent();
+    });
+  });
+}
+
+function updateHeroForStore(store) {
+  $("#heroEyebrow").textContent = `// Roomescape · ${store.name}`;
+  $("#heroTitle").textContent = "방을 고르고, 시간을 잡아라.";
+  $("#heroDesc").textContent = `${store.name}의 테마를 선택하면 날짜·시간 예약 페이지로 이동한다.`;
+  $("#themeSectionTitle").textContent = `${store.name} 테마`;
+}
+
 /* ── Theme grid ── */
 function renderThemes(themes) {
   const root = $("#themeGrid");
   root.innerHTML = "";
 
   if (!themes.length) {
-    root.innerHTML = '<p class="chip-empty">등록된 테마가 없습니다.</p>';
+    root.innerHTML = '<p class="chip-empty">이 지점에 등록된 테마가 없습니다.</p>';
     return;
   }
 
@@ -77,25 +134,46 @@ function renderPopular(themes) {
   });
 }
 
-/* ── Init ── */
-(async function init() {
-  Auth.initNav();
+/* ── 컨텐츠 로드 (지점 선택 후) ── */
+async function loadContent() {
+  const store = Auth.getSelectedStore();
+  const storeId = store?.id;
+
   try {
-    const [themes, popular] = await Promise.all([
+    const [allThemes, popular] = await Promise.all([
       api("/themes"),
       api("/themes/popular"),
     ]);
+
+    // 선택 지점으로 필터
+    const themes  = storeId ? allThemes.filter(t => t.storeId === storeId) : allThemes;
+    const popFiltered = storeId ? popular.filter(t => t.storeId === storeId) : popular;
+
     renderThemes(themes);
-    renderPopular(popular);
+    renderPopular(popFiltered);
   } catch (e) {
     setMessage(e.message, true);
+  }
+}
+
+/* ── Init ── */
+(async function init() {
+  Auth.initNav('navActions', { showStoreBadge: true });
+  await initStoreSelector();
+
+  // 지점이 이미 선택돼 있으면 바로 컨텐츠 로드
+  if (Auth.getSelectedStore()) {
+    loadContent();
   }
 })();
 
 $("#refreshPopular").addEventListener("click", async () => {
+  const store = Auth.getSelectedStore();
+  const storeId = store?.id;
   try {
     const popular = await api("/themes/popular");
-    renderPopular(popular);
+    const popFiltered = storeId ? popular.filter(t => t.storeId === storeId) : popular;
+    renderPopular(popFiltered);
     setMessage("인기 테마를 갱신했습니다.");
   } catch (e) {
     setMessage(e.message, true);

@@ -17,6 +17,8 @@ public interface ThemeRepository {
 
     List<Theme> findAll();
 
+    List<Theme> findByStoreIds(List<Long> storeIds);
+
     boolean existsByName(String name);
 
     List<Theme> findPopularThemes(LocalDate startDate, LocalDate endDate, ReservationStatus status, int limit);

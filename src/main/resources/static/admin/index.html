@@ -22,14 +22,31 @@
   <header class="hero">
     <p class="eyebrow">// Roomescape · Admin Console</p>
     <h1>관리자 콘솔</h1>
-    <p>예약·시간·테마를 관리한다. 전화 예약·노쇼 처리·상태 변경 같은 모든 백오피스 액션은 여기서.</p>
+    <p>지점을 선택하고 예약·시간·테마를 관리한다. 전화 예약·노쇼 처리·상태 변경 같은 모든 백오피스 액션은 여기서.</p>
   </header>
+
+  <!-- 지점 선택 -->
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <h2>지점 선택</h2>
+        <p class="panel-sub" style="margin-bottom:0;">지점을 선택하면 해당 지점의 예약·테마를 필터링합니다. 전체 관리도 가능합니다.</p>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+      <button class="nav-btn" id="filterAll" type="button" style="padding:10px 20px;">전체 지점</button>
+      <div id="storeFilterBtns" style="display:contents;"></div>
+    </div>
+    <p style="margin-top:12px; font-family:var(--font-mono); font-size:12px; color:var(--text-2);">
+      선택된 지점: <span id="selectedStoreLabel" style="color:var(--neon-cyan);">전체</span>
+    </p>
+  </section>
 
   <section class="panel">
     <h2>관리 영역</h2>
     <p class="panel-sub">아래 카드를 눌러 들어가.</p>
-    <div class="hub-grid">
-      <a class="hub-card" href="/admin/reservation.html">
+    <div class="hub-grid" id="adminHub">
+      <a class="hub-card" href="/admin/reservation.html" id="linkReservation">
         <p class="hub-tag">// reservation</p>
         <h3>예약 관리</h3>
         <p>조회·추가·수정·취소 · 상태(RESERVED / CANCELED / COMPLETED) 확인</p>
@@ -39,7 +56,7 @@
         <h3>시간 관리</h3>
         <p>예약 가능한 시간 슬롯 추가 · 삭제</p>
       </a>
-      <a class="hub-card" href="/admin/theme.html">
+      <a class="hub-card" href="/admin/theme.html" id="linkTheme">
         <p class="hub-tag">// theme</p>
         <h3>테마 관리</h3>
         <p>테마 카탈로그 추가 · 수정 · 삭제</p>
@@ -50,7 +67,7 @@
 
 <script src="/auth.js"></script>
 <script>
-  // 관리자 세션 검증: /admin/reservations 에 HEAD 요청 → 403이면 미인증
+  // 관리자 세션 검증
   (async function checkAdminAuth() {
     try {
       const res = await fetch('/admin/reservations', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
@@ -58,9 +75,7 @@
         alert('관리자 인증이 필요합니다. 홈에서 관리자 버튼을 눌러 비밀번호를 입력해 주세요.');
         location.href = '/';
       }
-    } catch (_) {
-      // 네트워크 오류는 무시 (서버 기동 중일 수 있음)
-    }
+    } catch (_) {}
   })();
 
   document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
@@ -68,6 +83,62 @@
     localStorage.removeItem('adminToken');
     location.href = '/';
   });
+
+  let selectedStore = null;
+
+  function updateLinks() {
+    const reservationLink = document.getElementById('linkReservation');
+    const themeLink       = document.getElementById('linkTheme');
+    if (selectedStore) {
+      reservationLink.href = `/admin/reservation.html?storeId=${selectedStore.id}&storeName=${encodeURIComponent(selectedStore.name)}`;
+      themeLink.href       = `/admin/theme.html?storeId=${selectedStore.id}&storeName=${encodeURIComponent(selectedStore.name)}`;
+    } else {
+      reservationLink.href = '/admin/reservation.html';
+      themeLink.href       = '/admin/theme.html';
+    }
+  }
+
+  async function loadStores() {
+    try {
+      const res    = await fetch('/stores', { headers: { 'Content-Type': 'application/json' } });
+      const stores = await res.json();
+      const container = document.getElementById('storeFilterBtns');
+      stores.forEach(store => {
+        const btn = document.createElement('button');
+        btn.className = 'nav-btn';
+        btn.style.padding = '10px 20px';
+        btn.textContent = store.name;
+        btn.type = 'button';
+        btn.addEventListener('click', () => {
+          selectedStore = store;
+          document.getElementById('selectedStoreLabel').textContent = store.name;
+          updateLinks();
+          // 모든 버튼 비활성화 후 선택된 것만 활성
+          document.querySelectorAll('#storeFilterBtns .nav-btn, #filterAll').forEach(b => {
+            b.style.borderColor = '';
+            b.style.color = '';
+          });
+          btn.style.borderColor = 'var(--neon-cyan)';
+          btn.style.color = 'var(--neon-cyan)';
+        });
+        container.appendChild(btn);
+      });
+    } catch (_) {}
+  }
+
+  document.getElementById('filterAll').addEventListener('click', function () {
+    selectedStore = null;
+    document.getElementById('selectedStoreLabel').textContent = '전체';
+    updateLinks();
+    document.querySelectorAll('#storeFilterBtns .nav-btn, #filterAll').forEach(b => {
+      b.style.borderColor = '';
+      b.style.color = '';
+    });
+    this.style.borderColor = 'var(--neon-cyan)';
+    this.style.color = 'var(--neon-cyan)';
+  });
+
+  loadStores();
 </script>
 </body>
 </html>

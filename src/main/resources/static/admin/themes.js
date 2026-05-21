@@ -2,12 +2,42 @@
  * 관리자 테마 관리 (templates/admin/themes.html)
  *
  * 백엔드 API
- *  - GET    /admin/themes              : 전체 테마 조회 (UserThemeController)
+ *  - GET    /admin/themes              : 전체 테마 조회
  *  - POST   /admin/themes        : 테마 추가
  *  - PUT    /admin/themes/{id}   : 테마 수정
  *  - DELETE /admin/themes/{id}   : 테마 삭제 (예약에 사용 중이면 409 ResourceInUse)
  */
 const $ = (selector) => document.querySelector(selector);
+
+/* URL params (지점 필터) */
+const _urlParams = new URLSearchParams(location.search);
+const _storeId   = _urlParams.get('storeId') ? Number(_urlParams.get('storeId')) : null;
+const _storeName = _urlParams.get('storeName') || null;
+
+if (_storeName) {
+  const eyebrow = document.getElementById('heroEyebrow');
+  const title   = document.getElementById('heroTitle');
+  if (eyebrow) eyebrow.textContent = `// Roomescape · Admin · ${_storeName} · 테마`;
+  if (title)   title.textContent   = `${_storeName} 테마 관리`;
+}
+
+/* 지점 목록 로드 (storeId 드롭다운 채우기) */
+async function loadStoreOptions() {
+  try {
+    const res    = await fetch('/stores', { headers: { 'Content-Type': 'application/json' } });
+    const stores = await res.json();
+    const sel    = document.getElementById('themeStoreId');
+    if (!sel) return;
+    stores.forEach(store => {
+      const opt = document.createElement('option');
+      opt.value       = store.id;
+      opt.textContent = store.name;
+      sel.appendChild(opt);
+    });
+    // URL에 storeId가 있으면 자동 선택
+    if (_storeId) sel.value = _storeId;
+  } catch (_) {}
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -62,6 +92,8 @@ function setFormMode(mode, theme) {
     form.elements["name"].value = theme.name;
     form.elements["description"].value = theme.description;
     form.elements["thumbnailUrl"].value = theme.thumbnailUrl;
+    const storeSel = document.getElementById("themeStoreId");
+    if (storeSel) storeSel.value = theme.storeId ?? _storeId ?? "";
     submitBtn.textContent = "저장";
     cancelBtn.style.display = "";
     title.textContent = `테마 #${theme.id} 수정`;
@@ -69,6 +101,8 @@ function setFormMode(mode, theme) {
   } else {
     idEl.value = "";
     form.reset();
+    const storeSel = document.getElementById("themeStoreId");
+    if (storeSel && _storeId) storeSel.value = _storeId;
     submitBtn.textContent = "추가";
     cancelBtn.style.display = "none";
     title.textContent = "테마 추가";
@@ -109,7 +143,9 @@ function renderThemes(themes) {
 let cachedThemes = [];
 
 async function refresh() {
-  cachedThemes = await api("/admin/themes");
+  const all = await api("/admin/themes");
+  // 지점 필터 적용
+  cachedThemes = _storeId ? all.filter(t => t.storeId === _storeId) : all;
   renderThemes(cachedThemes);
 }
 
@@ -119,14 +155,20 @@ $("#themeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(event.target);
   const id = form.get("id");
+  const storeIdVal = form.get("storeId") ? Number(form.get("storeId")) : null;
   const payload = {
     name: (form.get("name") || "").trim(),
     description: (form.get("description") || "").trim(),
-    thumbnailUrl: (form.get("thumbnailUrl") || "").trim()
+    thumbnailUrl: (form.get("thumbnailUrl") || "").trim(),
+    storeId: storeIdVal,
   };
 
   if (!payload.name || !payload.description || !payload.thumbnailUrl) {
     setMessage("모든 필드를 입력해 주세요.", true);
+    return;
+  }
+  if (!payload.storeId) {
+    setMessage("지점을 선택해 주세요.", true);
     return;
   }
 
@@ -195,6 +237,7 @@ $("#refreshBtn").addEventListener("click", async () => {
 /* ───────── Init ───────── */
 
 setFormMode("create");
+loadStoreOptions();
 refresh()
   .then(() => setMessage("초기 로딩 완료."))
   .catch((error) => setMessage(error.message, true));

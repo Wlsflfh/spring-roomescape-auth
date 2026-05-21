@@ -166,8 +166,6 @@ class ReservationTimeServiceTest {
         }
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────────
-
     private Long insertMember(String loginId, String name, String password) {
         String sql = "INSERT INTO member (login_id, name, password) VALUES (?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();

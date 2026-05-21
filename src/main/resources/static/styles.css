@@ -714,3 +714,104 @@ table.data td.actions { text-align: right; }
   line-height: 1;
 }
 .modal-close:hover { color: var(--text-0); }
+
+/* ─── Store selection overlay ─── */
+.store-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+.store-overlay.hidden { display: none; }
+.store-select-box {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 40px 48px;
+  max-width: 560px;
+  width: 90%;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--line-soft);
+  text-align: center;
+}
+.store-select-box .eyebrow { margin-bottom: 12px; }
+.store-select-box h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--text-0), var(--neon-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.store-select-box > p {
+  color: var(--text-2);
+  font-size: 14px;
+  margin: 0 0 32px;
+}
+.store-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.store-btn {
+  padding: 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-2);
+  color: var(--text-0);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.store-btn:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: var(--bg-3);
+  box-shadow: 0 0 0 1px var(--neon-cyan-soft), 0 0 24px var(--neon-cyan-soft);
+  transform: translateY(-2px);
+}
+.store-btn .store-icon { font-size: 22px; }
+.store-btn .store-sub { font-size: 11px; color: var(--text-2); font-weight: 400; }
+
+/* ─── Store badge in navbar ─── */
+.nav-store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--neon-cyan);
+  background: var(--neon-cyan-soft);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.nav-store-badge:hover {
+  background: rgba(76, 246, 255, 0.28);
+  box-shadow: 0 0 0 1px var(--neon-cyan-soft);
+}
+
+/* ─── Manager nav button ─── */
+.nav-btn.manager-btn {
+  border-color: var(--neon-amber);
+  color: var(--neon-amber);
+}
+.nav-btn.manager-btn:hover {
+  box-shadow: 0 0 0 1px var(--neon-amber-soft), 0 0 16px var(--neon-amber-soft);
+  background: var(--neon-amber-soft);
+}

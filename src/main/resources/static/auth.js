@@ -2,9 +2,10 @@
  * 인증 공통 유틸리티
  *
  * localStorage 키:
- *   'loginMember' → { id, loginId, name }
+ *   'loginMember' → { id, loginId, name, role }  (role: "MEMBER" | "MANAGER")
  *   'accessToken' → 회원 JWT
  *   'adminToken'  → 관리자 JWT
+ *   'selectedStore' → { id, name } (선택한 지점)
  *
  * 로그인 → setMember()   로그아웃 → logout()
  */
@@ -24,29 +25,36 @@
 })();
 
 const Auth = (() => {
-  const KEY = 'loginMember';
+  const MEMBER_KEY = 'loginMember';
+  const STORE_KEY  = 'selectedStore';
 
+  /* ── 회원 ── */
   function getMember() {
-    try { return JSON.parse(localStorage.getItem(KEY)); }
+    try { return JSON.parse(localStorage.getItem(MEMBER_KEY)); }
     catch (_) { return null; }
   }
 
   function setMember(loginResponse) {
     const { accessToken, tokenType, ...member } = loginResponse;
-    localStorage.setItem(KEY, JSON.stringify(member));
+    localStorage.setItem(MEMBER_KEY, JSON.stringify(member));
     if (accessToken) {
       localStorage.setItem('accessToken', accessToken);
     }
   }
 
   function clear() {
-    localStorage.removeItem(KEY);
+    localStorage.removeItem(MEMBER_KEY);
     localStorage.removeItem('accessToken');
     localStorage.removeItem('adminToken');
   }
 
   function isLoggedIn() {
     return !!getMember();
+  }
+
+  function isManager() {
+    const member = getMember();
+    return member?.role === 'MANAGER';
   }
 
   async function logout() {
@@ -56,24 +64,50 @@ const Auth = (() => {
     location.href = '/';
   }
 
+  /* ── 지점 선택 ── */
+  function getSelectedStore() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)); }
+    catch (_) { return null; }
+  }
+
+  function setSelectedStore(store) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  }
+
+  function clearSelectedStore() {
+    localStorage.removeItem(STORE_KEY);
+  }
+
   /**
-   * nav-actions 영역을 로그인 상태에 따라 렌더링.
+   * nav-actions 영역을 로그인 상태·역할에 따라 렌더링.
    *
    * @param {string}  containerId  nav-actions 요소의 id (기본 'navActions')
    * @param {object}  opts
-   *   hideMyReservations: true  → "내 예약 조회" 버튼 숨김 (my-reservations 페이지 자체에서 사용)
+   *   hideMyReservations: true  → "내 예약 조회" 버튼 숨김
    *   extraLeft: HTML string    → 왼쪽에 추가할 버튼 (← 홈 등)
+   *   showStoreBadge: true      → 선택 지점 배지 표시
    */
   function initNav(containerId = 'navActions', opts = {}) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     const member = getMember();
+    const store  = getSelectedStore();
     let html = '';
 
     if (opts.extraLeft) html += opts.extraLeft;
 
+    /* 지점 배지 */
+    if (opts.showStoreBadge !== false && store) {
+      html += `<span class="nav-store-badge" id="storeChangeBadge">📍 ${escapeHtml(store.name)}</span>`;
+    }
+
     if (member) {
+      /* 매니저: 내 매장 정보 버튼 추가 */
+      if (member.role === 'MANAGER') {
+        html += `<a class="nav-btn manager-btn" href="/manager/index.html">🏪 내 매장 정보</a>`;
+      }
+      /* 내 예약 조회 */
       if (!opts.hideMyReservations) {
         html += `<a class="nav-btn" href="/my-reservations.html">🔍 내 예약 조회</a>`;
       }
@@ -86,17 +120,28 @@ const Auth = (() => {
 
     container.innerHTML = html;
 
-    // 로그아웃 버튼
+    /* 지점 배지 클릭 → 지점 재선택 */
+    const storeBadge = document.getElementById('storeChangeBadge');
+    if (storeBadge) {
+      storeBadge.addEventListener('click', () => {
+        clearSelectedStore();
+        location.reload();
+      });
+    }
+
+    /* 로그아웃 버튼 */
     const logoutBtn = document.getElementById('logoutNavBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-    // 관리자 버튼 → 비밀번호 모달
+    /* 관리자 버튼 → 비밀번호 모달 */
     const adminBtn = document.getElementById('adminNavBtn');
-    if (adminBtn) {
-      adminBtn.addEventListener('click', () => {
-        openAdminModal();
-      });
-    }
+    if (adminBtn) adminBtn.addEventListener('click', openAdminModal);
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /* ── 관리자 비밀번호 모달 ── */
@@ -173,5 +218,17 @@ const Auth = (() => {
     }
   }
 
-  return { getMember, setMember, clear, isLoggedIn, logout, initNav, openAdminModal };
+  return {
+    getMember,
+    setMember,
+    clear,
+    isLoggedIn,
+    isManager,
+    logout,
+    initNav,
+    openAdminModal,
+    getSelectedStore,
+    setSelectedStore,
+    clearSelectedStore,
+  };
 })();

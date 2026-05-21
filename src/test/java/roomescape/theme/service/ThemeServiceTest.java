@@ -37,11 +37,13 @@ class ThemeServiceTest {
 
     private LocalDate today;
     private Long memberId;
+    private Long storeId;
 
     @BeforeEach
     void setUp() {
         today = LocalDate.now();
         memberId = insertMember("testuser", "테스터", "password");
+        storeId = insertStore("테스트 매장", "테마 테스트용 매장");
     }
 
     @Nested
@@ -51,7 +53,7 @@ class ThemeServiceTest {
         @Test
         @DisplayName("새로운 테마 이름이면 정상적으로 저장한다.")
         void saveSuccess() {
-            ThemeRequest request = new ThemeRequest("공포의 수랏간", "매우 무섭습니다.", "https://example.com/image.png");
+            ThemeRequest request = themeRequest("공포의 수랏간", "매우 무섭습니다.", "https://example.com/image.png");
 
             Theme saved = themeService.save(request);
 
@@ -63,10 +65,10 @@ class ThemeServiceTest {
         @Test
         @DisplayName("이미 존재하는 테마 이름이면 DuplicateResourceException 이 발생한다.")
         void saveFailWhenDuplicateName() {
-            themeService.save(new ThemeRequest("중복 이름", "설명", "https://example.com/a.png"));
+            themeService.save(themeRequest("중복 이름", "설명", "https://example.com/a.png"));
 
             assertThatThrownBy(() ->
-                    themeService.save(new ThemeRequest("중복 이름", "다른 설명", "https://example.com/b.png"))
+                    themeService.save(themeRequest("중복 이름", "다른 설명", "https://example.com/b.png"))
             )
                     .isInstanceOf(DuplicateResourceException.class)
                     .hasMessageContaining("이미 존재하는 테마 이름입니다.");
@@ -80,7 +82,7 @@ class ThemeServiceTest {
         @Test
         @DisplayName("존재하는 ID 면 해당 테마를 반환한다.")
         void getByIdSuccess() {
-            Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
+            Theme saved = themeService.save(themeRequest("테마", "설명", "https://example.com/a.png"));
 
             Theme result = themeService.getById(saved.getId());
 
@@ -104,7 +106,7 @@ class ThemeServiceTest {
         @Test
         @DisplayName("참조되지 않는 테마면 정상적으로 삭제한다.")
         void deleteByIdSuccess() {
-            Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
+            Theme saved = themeService.save(themeRequest("테마", "설명", "https://example.com/a.png"));
 
             themeService.deleteById(saved.getId());
 
@@ -115,7 +117,7 @@ class ThemeServiceTest {
         @DisplayName("예약에 사용 중인 테마는 BusinessRuleViolationException 이 발생하고 삭제되지 않는다.")
         void deleteByIdFailWhenInUse() {
             Long timeId = insertReservationTime(LocalTime.of(10, 0));
-            Theme saved = themeService.save(new ThemeRequest("테마", "설명", "https://example.com/a.png"));
+            Theme saved = themeService.save(themeRequest("테마", "설명", "https://example.com/a.png"));
             insertReservation(memberId, today.plusDays(1), timeId, saved.getId(), ReservationStatus.RESERVED);
 
             assertThatThrownBy(() -> themeService.deleteById(saved.getId()))
@@ -133,8 +135,8 @@ class ThemeServiceTest {
         @Test
         @DisplayName("저장된 모든 테마를 반환한다.")
         void findAllReturnsAll() {
-            themeService.save(new ThemeRequest("A", "설명A", "https://example.com/a.png"));
-            themeService.save(new ThemeRequest("B", "설명B", "https://example.com/b.png"));
+            themeService.save(themeRequest("A", "설명A", "https://example.com/a.png"));
+            themeService.save(themeRequest("B", "설명B", "https://example.com/b.png"));
 
             List<Theme> result = themeService.findAll();
 
@@ -157,9 +159,9 @@ class ThemeServiceTest {
         void findPopularThemesReturnsTopByRecentReservations() {
             LocalDate day1Ago = today.minusDays(1);
             LocalDate day7Ago = today.minusDays(7);
-            Theme themeA = themeService.save(new ThemeRequest("A", "설명A", "https://example.com/a.png"));
-            Theme themeB = themeService.save(new ThemeRequest("B", "설명B", "https://example.com/b.png"));
-            Theme themeC = themeService.save(new ThemeRequest("C", "설명C", "https://example.com/c.png"));
+            Theme themeA = themeService.save(themeRequest("A", "설명A", "https://example.com/a.png"));
+            Theme themeB = themeService.save(themeRequest("B", "설명B", "https://example.com/b.png"));
+            Theme themeC = themeService.save(themeRequest("C", "설명C", "https://example.com/c.png"));
 
             Long t10 = insertReservationTime(LocalTime.of(10, 0));
             Long t11 = insertReservationTime(LocalTime.of(11, 0));
@@ -182,7 +184,7 @@ class ThemeServiceTest {
         @DisplayName("7일 보다 더 이전의 예약은 인기 테마 집계에서 제외된다.")
         void findPopularThemesExcludesOldReservations() {
             LocalDate day8Ago = today.minusDays(8);
-            Theme theme = themeService.save(new ThemeRequest("Old", "설명", "https://example.com/o.png"));
+            Theme theme = themeService.save(themeRequest("Old", "설명", "https://example.com/o.png"));
             Long timeId = insertReservationTime(LocalTime.of(10, 0));
             insertReservation(memberId, day8Ago, timeId, theme.getId(), ReservationStatus.RESERVED);
 
@@ -199,11 +201,11 @@ class ThemeServiceTest {
         @Test
         @DisplayName("존재하는 ID 의 테마를 수정한다.")
         void updateSuccess() {
-            Theme saved = themeService.save(new ThemeRequest("OLD", "설명", "https://example.com/a.png"));
+            Theme saved = themeService.save(themeRequest("OLD", "설명", "https://example.com/a.png"));
 
             Theme updated = themeService.update(
                     saved.getId(),
-                    new ThemeRequest("NEW", "새 설명", "https://example.com/b.png")
+                    themeRequest("NEW", "새 설명", "https://example.com/b.png")
             );
 
             assertThat(updated.getId()).isEqualTo(saved.getId());
@@ -214,12 +216,12 @@ class ThemeServiceTest {
         @Test
         @DisplayName("이름을 다른 테마와 같은 값으로 변경하려 하면 DuplicateResourceException 이 발생한다.")
         void updateFailWhenDuplicateName() {
-            themeService.save(new ThemeRequest("이미있음", "설명1", "https://example.com/a.png"));
-            Theme target = themeService.save(new ThemeRequest("바꿀것", "설명2", "https://example.com/b.png"));
+            themeService.save(themeRequest("이미있음", "설명1", "https://example.com/a.png"));
+            Theme target = themeService.save(themeRequest("바꿀것", "설명2", "https://example.com/b.png"));
 
             assertThatThrownBy(() -> themeService.update(
                     target.getId(),
-                    new ThemeRequest("이미있음", "설명3", "https://example.com/c.png")
+                    themeRequest("이미있음", "설명3", "https://example.com/c.png")
             ))
                     .isInstanceOf(DuplicateResourceException.class);
         }
@@ -229,13 +231,11 @@ class ThemeServiceTest {
         void updateFailWhenNotFound() {
             assertThatThrownBy(() -> themeService.update(
                     999L,
-                    new ThemeRequest("X", "설명", "https://example.com/x.png")
+                    themeRequest("X", "설명", "https://example.com/x.png")
             ))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }
-
-    // ── helpers ────────────────────────────────────────────────────────────────
 
     private Long insertMember(String loginId, String name, String password) {
         String sql = "INSERT INTO member (login_id, name, password) VALUES (?, ?, ?)";
@@ -257,6 +257,22 @@ class ThemeServiceTest {
                 Long.class,
                 startAt.toString()
         );
+    }
+
+    private Long insertStore(String name, String description) {
+        String sql = "INSERT INTO store (name, description) VALUES (?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setString(1, name);
+            ps.setString(2, description);
+            return ps;
+        }, keyHolder);
+        return keyHolder.getKey().longValue();
+    }
+
+    private ThemeRequest themeRequest(String name, String description, String thumbnailUrl) {
+        return new ThemeRequest(name, description, thumbnailUrl, storeId);
     }
 
     private void insertReservation(Long memberId, LocalDate date, Long timeId, Long themeId, ReservationStatus status) {

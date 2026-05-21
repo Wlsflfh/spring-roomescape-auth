@@ -16,6 +16,7 @@ import roomescape.theme.domain.Theme;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,6 +136,16 @@ public class JdbcThemeRepository implements ThemeRepository {
                 status.name(),
                 limit
         );
+    }
+
+    @Override
+    public List<Theme> findByStoreIds(List<Long> storeIds) {
+        if (storeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String placeholders = String.join(", ", Collections.nCopies(storeIds.size(), "?"));
+        String sql = SELECT_WITH_STORE + "where t.store_id in (" + placeholders + ") order by t.id";
+        return jdbcTemplate.query(sql, ThemeMapper, storeIds.toArray());
     }
 
     @Override

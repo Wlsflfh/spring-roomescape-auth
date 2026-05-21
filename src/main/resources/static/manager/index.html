@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>매니저 콘솔 · Roomescape</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="/styles.css" rel="stylesheet" />
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="nav-logo" href="/">// ROOMESCAPE</a>
+  <div class="nav-actions" id="navActions"></div>
+</nav>
+
+<main class="page" style="padding-top:0;">
+  <header class="hero">
+    <p class="eyebrow">// Roomescape · Manager Console</p>
+    <h1 id="heroTitle">내 매장 정보</h1>
+    <p id="heroDesc">관리할 매장을 선택하세요.</p>
+  </header>
+
+  <!-- 매장 선택 (여러 매장 관리 가능) -->
+  <section class="panel" id="storeSelectSection">
+    <h2>관리할 매장 선택</h2>
+    <p class="panel-sub">담당하는 매장 중 하나를 선택하면 예약·테마·시간을 관리할 수 있습니다.</p>
+    <div class="store-btn-grid" id="managerStoreBtns" style="margin-top:16px;">
+      <p style="color:var(--text-2);">불러오는 중…</p>
+    </div>
+  </section>
+
+  <!-- 선택된 매장 관리 메뉴 (초기 숨김) -->
+  <section class="panel" id="manageSection" style="display:none;">
+    <div class="section-header">
+      <div>
+        <h2 id="manageSectionTitle">관리 영역</h2>
+        <p class="panel-sub" style="margin-bottom:0;">카드를 눌러 해당 기능으로 이동합니다.</p>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="changeStoreBtn" type="button">← 매장 변경</button>
+      </div>
+    </div>
+    <div class="hub-grid" id="manageHub"></div>
+  </section>
+
+  <p class="message" id="message"></p>
+</main>
+
+<script src="/auth.js"></script>
+<script>
+  /* 매니저 권한 확인 */
+  (function checkManagerAuth() {
+    const member = Auth.getMember();
+    if (!member) {
+      location.href = '/login.html?next=' + encodeURIComponent(location.href);
+      return;
+    }
+    if (member.role !== 'MANAGER') {
+      alert('매니저 권한이 필요합니다.');
+      location.href = '/';
+    }
+  })();
+
+  Auth.initNav('navActions', {
+    extraLeft: '<a class="nav-btn" href="/">← 홈</a>',
+    hideMyReservations: false,
+  });
+
+  const $ = (sel) => document.querySelector(sel);
+
+  async function api(path) {
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) {
+      let msg;
+      try { const b = await res.json(); msg = b.message || JSON.stringify(b); }
+      catch (_) { msg = `요청 실패 (HTTP ${res.status})`; }
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  let selectedStore = null;
+  const icons = ['🏙️', '🎭', '🌆', '🏬', '🎪'];
+
+  async function loadManagerStores() {
+    try {
+      const stores = await api('/manager/stores');
+      const grid = $('#managerStoreBtns');
+
+      if (!stores.length) {
+        grid.innerHTML = '<p style="color:var(--text-2);">담당하는 매장이 없습니다. 관리자에게 문의하세요.</p>';
+        return;
+      }
+
+      // 매장 1개면 자동 선택
+      if (stores.length === 1) {
+        selectStore(stores[0]);
+        return;
+      }
+
+      grid.innerHTML = stores.map((store, i) => `
+        <button class="store-btn" data-store='${JSON.stringify(store)}' type="button">
+          <span class="store-icon">${icons[i % icons.length]}</span>
+          <span>${escapeHtml(store.name)}</span>
+          <span class="store-sub">${escapeHtml(store.description)}</span>
+        </button>
+      `).join('');
+
+      grid.querySelectorAll('.store-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectStore(JSON.parse(btn.dataset.store));
+        });
+      });
+    } catch (e) {
+      $('#message').textContent = e.message;
+      $('#message').classList.add('error');
+    }
+  }
+
+  function selectStore(store) {
+    selectedStore = store;
+
+    // UI 업데이트
+    $('#storeSelectSection').style.display = 'none';
+    $('#manageSection').style.display = '';
+    $('#manageSectionTitle').textContent = `${store.name} 관리 영역`;
+    $('#heroTitle').textContent = store.name;
+    $('#heroDesc').textContent = `${store.name}의 예약, 테마, 시간을 관리합니다.`;
+
+    const storeParam = encodeURIComponent(JSON.stringify({ id: store.id, name: store.name }));
+
+    $('#manageHub').innerHTML = `
+      <a class="hub-card" href="/manager/reservation.html?storeId=${store.id}&storeName=${encodeURIComponent(store.name)}">
+        <p class="hub-tag">// reservation</p>
+        <h3>예약 관리</h3>
+        <p>조회·수정·취소 · 상태(RESERVED / CANCELED / COMPLETED) 확인</p>
+      </a>
+      <a class="hub-card" href="/manager/theme.html?storeId=${store.id}&storeName=${encodeURIComponent(store.name)}">
+        <p class="hub-tag">// theme</p>
+        <h3>테마 관리</h3>
+        <p>내 매장 테마 추가 · 수정 · 삭제</p>
+      </a>
+      <a class="hub-card" href="/manager/time.html?storeId=${store.id}&storeName=${encodeURIComponent(store.name)}">
+        <p class="hub-tag">// time</p>
+        <h3>시간 관리</h3>
+        <p>예약 가능한 시간 슬롯 추가 · 삭제</p>
+      </a>
+    `;
+  }
+
+  $('#changeStoreBtn').addEventListener('click', () => {
+    selectedStore = null;
+    $('#storeSelectSection').style.display = '';
+    $('#manageSection').style.display = 'none';
+    $('#heroTitle').textContent = '내 매장 정보';
+    $('#heroDesc').textContent = '관리할 매장을 선택하세요.';
+  });
+
+  loadManagerStores();
+</script>
+</body>
+</html>

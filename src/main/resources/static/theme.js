@@ -209,7 +209,7 @@ $("#calGrid").addEventListener("click", (e) => {
 
 /* ── Init ── */
 (async function init() {
-  Auth.initNav({ extraLeft: '<a class="nav-btn" href="/">← 홈</a>' });
+  Auth.initNav('navActions', { extraLeft: '<a class="nav-btn" href="/">← 홈</a>' });
   renderCalendar();
   try {
     await loadTheme();
